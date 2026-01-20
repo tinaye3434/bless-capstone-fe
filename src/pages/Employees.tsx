@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import Button from 'react-bootstrap/Button'
-import Modal from 'react-bootstrap/Modal'
-import Table from 'react-bootstrap/Table'
+import { Button, Modal, Table, Row, Form, Col } from 'react-bootstrap'
 
 function Employees() {
   const [show, setShow] = useState(false)
@@ -24,39 +22,75 @@ function Employees() {
             <thead>
               <tr>
                 <th>#</th>
-                <th>First Name</th>
-                <th>Last Name</th>
-                <th>Username</th>
+                <th>Full Name</th>
+                <th>Department</th>
+                <th>Gender</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td>1</td>
-                <td>Mark</td>
-                <td>Otto</td>
-                <td>@mdo</td>
-              </tr>
-              <tr>
-                <td>2</td>
-                <td>Jacob</td>
-                <td>Thornton</td>
-                <td>@fat</td>
-              </tr>
-              <tr>
-                <td>3</td>
-                <td colSpan={2}>Larry the Bird</td>
-                <td>@twitter</td>
-              </tr>
-            </tbody>
+            <tbody></tbody>
           </Table>
         </div>
       </div>
 
-      <Modal show={show} onHide={handleClose}>
+      <Modal size='lg' show={show} onHide={handleClose}>
         <Modal.Header closeButton>
-          <Modal.Title>Modal heading</Modal.Title>
+          <Modal.Title>Employee</Modal.Title>
         </Modal.Header>
-        <Modal.Body>Woohoo, you are reading this text in a modal!</Modal.Body>
+        <Modal.Body>
+          <Form>
+            <Row className='mb-3'>
+              <Form.Group as={Col} controlId='formGridFirstName'>
+                <Form.Label>First Name</Form.Label>
+                <Form.Control />
+              </Form.Group>
+
+              <Form.Group as={Col} controlId='formGridSurname'>
+                <Form.Label>Surname</Form.Label>
+                <Form.Control />
+              </Form.Group>
+            </Row>
+
+            <Row className='mb-3'>
+              <Form.Group as={Col} controlId='formGridAddress1'>
+                <Form.Label>Email</Form.Label>
+                <Form.Control type='email' />
+              </Form.Group>
+
+              <Form.Group as={Col} controlId='formGridPhone'>
+                <Form.Label>Phone Number</Form.Label>
+                <Form.Control />
+              </Form.Group>
+            </Row>
+
+            <Row className='mb-3'>
+              <Form.Group as={Col} controlId='formGridCity'>
+                <Form.Label>Department</Form.Label>
+                <Form.Select defaultValue='Choose...'>
+                  <option>Choose...</option>
+                  <option>...</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group as={Col} controlId='formGridState'>
+                <Form.Label>Grade</Form.Label>
+                <Form.Select defaultValue='Choose...'>
+                  <option>Choose...</option>
+                  <option>...</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group as={Col} controlId='formGridZip'>
+                <Form.Label>Position</Form.Label>
+                <Form.Select defaultValue='Choose...'>
+                  <option>Choose...</option>
+                  <option>...</option>
+                </Form.Select>
+              </Form.Group>
+            </Row>
+          </Form>
+        </Modal.Body>
         <Modal.Footer>
           <Button variant='secondary' onClick={handleClose}>
             Close

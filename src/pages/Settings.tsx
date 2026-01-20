@@ -1,6 +1,9 @@
 import Employees from './Employees'
 import Tab from 'react-bootstrap/Tab'
 import Tabs from 'react-bootstrap/Tabs'
+import Currencies from './Currencies'
+import Allowances from './Allowances'
+import ApprovalStages from './ApprovalStages'
 
 function Settings() {
   return (
@@ -18,17 +21,11 @@ function Settings() {
                 <Tab eventKey='employees' title='Employees'>
                   <Employees />
                 </Tab>
-                <Tab eventKey='currencies' title='Currencies'>
-                  Tab content for Profile
-                </Tab>
-                <Tab eventKey='grade-ranges' title='Grade Ranges'>
-                  Tab content for Loooonger Tab
-                </Tab>
                 <Tab eventKey='allowances' title='Allowances'>
-                  Tab content for Loooonger Tab
+                  <Allowances />
                 </Tab>
                 <Tab eventKey='approval-stages' title='Approval Stages'>
-                  Tab content for Loooonger Tab
+                  <ApprovalStages />
                 </Tab>
               </Tabs>
             </div>
