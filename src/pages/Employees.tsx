@@ -187,13 +187,15 @@ function Employees() {
         position: getPayloadEnumValue('position', formData.position),
         grade: getPayloadEnumValue('grade', formData.grade),
         gender: getPayloadEnumValue('gender', formData.gender),
-        status: getPayloadEnumValue('status', formData.status),
       }
 
       if (editingEmployeeId === null) {
         await axios.post(EMPLOYEES_ENDPOINT, payload)
       } else {
-        await axios.put(`${EMPLOYEES_ENDPOINT}${editingEmployeeId}/`, payload)
+        await axios.put(`${EMPLOYEES_ENDPOINT}${editingEmployeeId}/`, {
+          ...payload,
+          status: getPayloadEnumValue('status', formData.status),
+        })
       }
       await fetchEmployees()
       handleClose()
@@ -403,25 +405,28 @@ function Employees() {
                   ))}
                 </Form.Select>
               </Form.Group>
-
-              <Form.Group as={Col} controlId='formGridStatus'>
-                <Form.Label>Status</Form.Label>
-                <Form.Select
-                  name='status'
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  required
-                  disabled={loadingEnums}
-                >
-                  <option value=''>Choose...</option>
-                  {enums.status.map((option) => (
-                    <option key={String(option.value)} value={String(option.value)}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
             </Row>
+            {isEditing ? (
+              <Row className='mb-3'>
+                <Form.Group as={Col} controlId='formGridStatus'>
+                  <Form.Label>Status</Form.Label>
+                  <Form.Select
+                    name='status'
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    required
+                    disabled={loadingEnums}
+                  >
+                    <option value=''>Choose...</option>
+                    {enums.status.map((option) => (
+                      <option key={String(option.value)} value={String(option.value)}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Row>
+            ) : null}
             <Modal.Footer className='px-0 pb-0'>
               <Button variant='secondary' onClick={handleClose} disabled={saving}>
                 Close
