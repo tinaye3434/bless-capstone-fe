@@ -39,17 +39,10 @@ function Sidebar() {
             </li>
 
             <li className='nav-item'>
-              <NavLink to='/create-claim'>
-                <i className='fas fa-plus'></i>
-                <p>Create Claim</p>
-              </NavLink>
-            </li>
-
-            <li className='nav-item'>
-              <a href='../../documentation/index.html'>
+              <NavLink to='/'>
                 <i className='fas fa-file'></i>
                 <p>My Claims</p>
-              </a>
+              </NavLink>
             </li>
 
             <li className='nav-section'>
