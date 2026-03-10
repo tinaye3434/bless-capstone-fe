@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Alert, Button, Card, Col, Form, Row, Table } from 'react-bootstrap'
+import { useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
+import { Alert, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap'
+import { useNavigate, useParams } from 'react-router-dom'
 
 type ClaimForm = {
   employee: string
@@ -18,23 +20,48 @@ type AllowanceRow = {
   amount: string
 }
 
-const employees = [
-  { value: '1', label: 'John Moyo' },
-  { value: '2', label: 'Tariro Ncube' },
-  { value: '3', label: 'Nyasha Dube' },
-]
+type AllowanceOption = {
+  id: number | string
+  title?: string
+  name?: string
+  label?: string
+  cost?: number
+}
 
-const locations = [
-  'Harare',
-  'Bulawayo',
-  'Mutare',
-  'Gweru',
-  'Masvingo',
-  'Chinhoyi',
-  'Kadoma',
-]
+type Employee = {
+  id: number | string
+  first_name?: string
+  surname?: string
+  name?: string
+  full_name?: string
+}
 
-const allowanceOptions = ['Accommodation', 'Meal', 'Transport', 'Fuel', 'Incidentals']
+type ClaimDetail = {
+  id: number | string
+  employee_id?: number | string
+  purpose?: string
+  departure_date?: string
+  return_date?: string
+  origin?: string
+  destination?: string
+  user_distance?: number
+  nights?: number
+  days?: number
+}
+
+type ClaimLine = {
+  id?: number | string
+  claim_id?: number | string
+  allowance_id?: number | string
+  quantity?: number
+  amount?: number
+}
+
+const EMPLOYEES_ENDPOINT = '/api/employee/'
+const CITIES_ENDPOINT = '/api/cities/'
+const ALLOWANCES_ENDPOINT = '/api/allowances/'
+const CLAIMS_ENDPOINT = '/api/claims/'
+const CLAIM_LINES_ENDPOINT = '/api/claim-lines/'
 
 const initialClaimForm: ClaimForm = {
   employee: '',
@@ -52,6 +79,160 @@ const createAllowanceRow = (id: number): AllowanceRow => ({
   quantity: '',
   amount: '',
 })
+
+const normalizeEmployeesResponse = (payload: unknown): Employee[] => {
+  if (Array.isArray(payload)) {
+    return payload as Employee[]
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+
+    if (Array.isArray(record.data)) {
+      return record.data as Employee[]
+    }
+
+    if (Array.isArray(record.results)) {
+      return record.results as Employee[]
+    }
+
+    if (Array.isArray(record.employees)) {
+      return record.employees as Employee[]
+    }
+  }
+
+  return []
+}
+
+const normalizeCitiesResponse = (payload: unknown): string[] => {
+  const extractCityName = (value: unknown): string => {
+    if (typeof value === 'string' || typeof value === 'number') {
+      return String(value).trim()
+    }
+
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>
+      const candidates = [record.name, record.city, record.title, record.label]
+      const matched = candidates.find(
+        (candidate) => typeof candidate === 'string' || typeof candidate === 'number',
+      )
+
+      return matched === undefined ? '' : String(matched).trim()
+    }
+
+    return ''
+  }
+
+  const toCityList = (value: unknown): string[] => {
+    if (!Array.isArray(value)) {
+      return []
+    }
+
+    return value
+      .map((city) => extractCityName(city))
+      .filter((city): city is string => city.length > 0)
+  }
+
+  if (Array.isArray(payload)) {
+    return toCityList(payload)
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+    const knownCollections = [record.data, record.results, record.cities]
+
+    for (const collection of knownCollections) {
+      const normalized = toCityList(collection)
+      if (normalized.length > 0) {
+        return normalized
+      }
+    }
+  }
+
+  return []
+}
+
+const getEmployeeLabel = (employee: Employee): string => {
+  const fullName =
+    employee.full_name?.trim() ||
+    employee.name?.trim() ||
+    `${employee.first_name ?? ''} ${employee.surname ?? ''}`.trim()
+
+  return fullName || `Employee ${employee.id}`
+}
+
+const normalizeAllowancesResponse = (payload: unknown): AllowanceOption[] => {
+  if (Array.isArray(payload)) {
+    return payload as AllowanceOption[]
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+
+    if (Array.isArray(record.data)) {
+      return record.data as AllowanceOption[]
+    }
+
+    if (Array.isArray(record.results)) {
+      return record.results as AllowanceOption[]
+    }
+
+    if (Array.isArray(record.allowances)) {
+      return record.allowances as AllowanceOption[]
+    }
+  }
+
+  return []
+}
+
+const getAllowanceLabel = (allowance: AllowanceOption): string => {
+  const label = allowance.title?.trim() || allowance.name?.trim() || allowance.label?.trim()
+  return label || `Allowance ${allowance.id}`
+}
+
+const normalizeClaimLinesResponse = (payload: unknown): ClaimLine[] => {
+  if (Array.isArray(payload)) {
+    return payload as ClaimLine[]
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+
+    if (Array.isArray(record.data)) {
+      return record.data as ClaimLine[]
+    }
+
+    if (Array.isArray(record.results)) {
+      return record.results as ClaimLine[]
+    }
+
+    if (Array.isArray(record.claim_lines)) {
+      return record.claim_lines as ClaimLine[]
+    }
+  }
+
+  return []
+}
+
+const fetchClaimLines = async (claimId: string): Promise<ClaimLine[]> => {
+  try {
+    const response = await axios.get(`${CLAIMS_ENDPOINT}${claimId}/lines/`)
+    const lines = normalizeClaimLinesResponse(response.data)
+    return lines.filter((line) => String(line.claim_id ?? claimId) === String(claimId))
+  } catch (error) {
+    console.warn('Claim lines not available at /claims/:id/lines/.', error)
+  }
+
+  try {
+    const response = await axios.get(`${CLAIM_LINES_ENDPOINT}?claim_id=${claimId}`)
+    const lines = normalizeClaimLinesResponse(response.data)
+    return lines.filter((line) => String(line.claim_id ?? claimId) === String(claimId))
+  } catch (error) {
+    console.warn('Claim lines not available at /claim-lines/.', error)
+  }
+
+  return []
+}
 
 const getTripValues = (departureDateTime: string, returnDateTime: string) => {
   if (!departureDateTime || !returnDateTime) {
@@ -77,11 +258,143 @@ const getTripValues = (departureDateTime: string, returnDateTime: string) => {
   return { nights, days }
 }
 
+const toDateTimeLocal = (value?: string): string => {
+  if (!value) {
+    return ''
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000
+  const local = new Date(date.getTime() - offsetMs)
+  return local.toISOString().slice(0, 16)
+}
+
 function CreateClaim() {
+  const navigate = useNavigate()
+  const { id: claimId } = useParams()
+  const isEditing = Boolean(claimId)
   const [formData, setFormData] = useState<ClaimForm>(initialClaimForm)
   const [allowances, setAllowances] = useState<AllowanceRow[]>([createAllowanceRow(1)])
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [locations, setLocations] = useState<string[]>([])
+  const [allowanceOptions, setAllowanceOptions] = useState<AllowanceOption[]>([])
   const [nextAllowanceId, setNextAllowanceId] = useState(2)
+  const [loadingOptions, setLoadingOptions] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadingClaim, setLoadingClaim] = useState(false)
+  const [savingClaim, setSavingClaim] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    const fetchOptions = async () => {
+      setLoadingOptions(true)
+      setLoadError(null)
+
+      try {
+        const [allowancesResponse, employeesResponse, citiesResponse] = await Promise.all([
+          axios.get(ALLOWANCES_ENDPOINT),
+          axios.get(EMPLOYEES_ENDPOINT),
+          axios.get(CITIES_ENDPOINT),
+        ])
+
+        setAllowanceOptions(normalizeAllowancesResponse(allowancesResponse.data))
+        setEmployees(normalizeEmployeesResponse(employeesResponse.data))
+        setLocations(normalizeCitiesResponse(citiesResponse.data))
+      } catch (error) {
+        setLoadError('Failed to load employees, cities, and allowances.')
+        console.error(error)
+      } finally {
+        setLoadingOptions(false)
+      }
+    }
+
+    void fetchOptions()
+  }, [])
+
+  useEffect(() => {
+    if (!claimId) {
+      return
+    }
+
+    const fetchClaim = async () => {
+      setLoadingClaim(true)
+      setLoadError(null)
+
+      try {
+        const [claimResponse, claimLines] = await Promise.all([
+          axios.get<ClaimDetail>(`${CLAIMS_ENDPOINT}${claimId}/`),
+          fetchClaimLines(claimId),
+        ])
+
+        const claim = claimResponse.data
+        setFormData({
+          employee: claim.employee_id !== undefined ? String(claim.employee_id) : '',
+          purpose: claim.purpose ?? '',
+          departure_date: toDateTimeLocal(claim.departure_date),
+          return_date: toDateTimeLocal(claim.return_date),
+          origin: claim.origin ?? '',
+          destination: claim.destination ?? '',
+          user_distance: claim.user_distance !== undefined ? String(claim.user_distance) : '',
+        })
+
+        if (claimLines.length > 0) {
+          const mappedRows = claimLines.map((line, index) => {
+            const allowanceId = line.allowance_id !== undefined ? String(line.allowance_id) : ''
+            const matchedAllowance = allowanceOptions.find(
+              (option) => String(option.id) === allowanceId,
+            )
+            const amount =
+              line.amount !== undefined
+                ? String(line.amount)
+                : matchedAllowance?.cost !== undefined
+                  ? String(matchedAllowance.cost)
+                  : ''
+
+            return {
+              id: index + 1,
+              allowance: allowanceId,
+              quantity: line.quantity !== undefined ? String(line.quantity) : '',
+              amount,
+            }
+          })
+          setAllowances(mappedRows)
+          setNextAllowanceId(mappedRows.length + 1)
+        }
+      } catch (error) {
+        setLoadError('Failed to load claim details.')
+        console.error(error)
+      } finally {
+        setLoadingClaim(false)
+      }
+    }
+
+    void fetchClaim()
+  }, [claimId])
+
+  useEffect(() => {
+    if (!isEditing || allowanceOptions.length === 0) {
+      return
+    }
+
+    setAllowances((previous) =>
+      previous.map((row) => {
+        if (row.amount) {
+          return row
+        }
+        const matched = allowanceOptions.find(
+          (option) => String(option.id) === String(row.allowance),
+        )
+        if (!matched || matched.cost === undefined) {
+          return row
+        }
+        return { ...row, amount: String(matched.cost) }
+      }),
+    )
+  }, [isEditing, allowanceOptions])
 
   const { nights, days } = useMemo(
     () => getTripValues(formData.departure_date, formData.return_date),
@@ -109,7 +422,19 @@ function CreateClaim() {
     value: string,
   ) => {
     setAllowances((previous) =>
-      previous.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
+      previous.map((row) => {
+        if (row.id !== id) {
+          return row
+        }
+
+        if (field === 'allowance') {
+          const matched = allowanceOptions.find((option) => String(option.id) === String(value))
+          const amount = matched?.cost !== undefined ? String(matched.cost) : ''
+          return { ...row, allowance: value, amount }
+        }
+
+        return { ...row, [field]: value }
+      }),
     )
   }
 
@@ -127,9 +452,54 @@ function CreateClaim() {
     })
   }
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setSubmitted(true)
+    setSavingClaim(true)
+    setSubmitError(null)
+    setSubmitSuccess(null)
+
+    const parseId = (value: string) => {
+      const numeric = Number(value)
+      return Number.isNaN(numeric) ? value : numeric
+    }
+
+    const allowancePayload = allowances
+      .filter((row) => row.allowance)
+      .map((row) => ({
+        allowance_id: parseId(row.allowance),
+        quantity: Number(row.quantity) || 0,
+        amount: Number(row.amount) || 0,
+      }))
+
+    const payload = {
+      employee_id: parseId(formData.employee),
+      purpose: formData.purpose.trim(),
+      departure_date: formData.departure_date,
+      return_date: formData.return_date,
+      origin: formData.origin,
+      destination: formData.destination,
+      user_distance: Number(formData.user_distance) || 0,
+      nights,
+      days,
+      total_allowances: allowancesTotal,
+      allowances: allowancePayload,
+      auto_distance: false,
+    }
+
+    try {
+      const response = isEditing
+        ? await axios.put(`${CLAIMS_ENDPOINT}${claimId}/`, payload)
+        : await axios.post(CLAIMS_ENDPOINT, payload)
+      console.log('Save claim response:', response.data)
+      setSubmitted(true)
+      setSubmitSuccess(isEditing ? 'Claim updated successfully.' : 'Claim submitted successfully.')
+      navigate('/my-claims')
+    } catch (error) {
+      setSubmitError(isEditing ? 'Failed to update claim.' : 'Failed to submit claim.')
+      console.error(error)
+    } finally {
+      setSavingClaim(false)
+    }
   }
 
   return (
@@ -137,7 +507,20 @@ function CreateClaim() {
       <div className='col-12'>
         <Card>
           <Card.Body>
-            <h5 className='mb-3'>Create Claim</h5>
+            <h5 className='mb-3'>{isEditing ? 'Edit Claim' : 'Create Claim'}</h5>
+            {loadError ? <Alert variant='danger'>{loadError}</Alert> : null}
+            {submitError ? <Alert variant='danger'>{submitError}</Alert> : null}
+            {submitSuccess ? <Alert variant='success'>{submitSuccess}</Alert> : null}
+            {loadingOptions || loadingClaim ? (
+              <div className='d-flex align-items-center mb-3'>
+                <Spinner animation='border' size='sm' className='me-2' />
+                <span>
+                  {loadingClaim
+                    ? 'Loading claim details...'
+                    : 'Loading employees, cities, and allowances...'}
+                </span>
+              </div>
+            ) : null}
             <Form onSubmit={handleSubmit}>
               <Row className='mb-3'>
                 <Form.Group as={Col} md={6} controlId='claimEmployee'>
@@ -146,12 +529,13 @@ function CreateClaim() {
                     name='employee'
                     value={formData.employee}
                     onChange={handleInputChange}
+                    disabled={loadingOptions}
                     required
                   >
                     <option value=''>Choose employee...</option>
                     {employees.map((employee) => (
-                      <option key={employee.value} value={employee.value}>
-                        {employee.label}
+                      <option key={employee.id} value={String(employee.id)}>
+                        {getEmployeeLabel(employee)}
                       </option>
                     ))}
                   </Form.Select>
@@ -215,6 +599,7 @@ function CreateClaim() {
                     name='origin'
                     value={formData.origin}
                     onChange={handleInputChange}
+                    disabled={loadingOptions}
                     required
                   >
                     <option value=''>Choose origin...</option>
@@ -232,6 +617,7 @@ function CreateClaim() {
                     name='destination'
                     value={formData.destination}
                     onChange={handleInputChange}
+                    disabled={loadingOptions}
                     required
                   >
                     <option value=''>Choose destination...</option>
@@ -293,8 +679,8 @@ function CreateClaim() {
                           >
                             <option value=''>Choose allowance...</option>
                             {allowanceOptions.map((allowance) => (
-                              <option key={allowance} value={allowance}>
-                                {allowance}
+                              <option key={allowance.id} value={String(allowance.id)}>
+                                {getAllowanceLabel(allowance)}
                               </option>
                             ))}
                           </Form.Select>
@@ -320,6 +706,7 @@ function CreateClaim() {
                             onChange={(event) =>
                               handleAllowanceChange(row.id, 'amount', event.target.value)
                             }
+                            readOnly
                             required
                           />
                         </td>
@@ -347,15 +734,9 @@ function CreateClaim() {
                 </div>
               </div>
 
-              {submitted ? (
-                <Alert variant='success'>
-                  Claim captured on the screen. Connect submit handler to your API when ready.
-                </Alert>
-              ) : null}
-
               <div className='d-flex justify-content-end'>
-                <Button type='submit' variant='primary'>
-                  Save Claim
+                <Button type='submit' variant='primary' disabled={savingClaim || loadingOptions}>
+                  {savingClaim ? 'Saving...' : 'Save Claim'}
                 </Button>
               </div>
             </Form>

@@ -1,7 +1,6 @@
 import Employees from './Employees'
 import Tab from 'react-bootstrap/Tab'
 import Tabs from 'react-bootstrap/Tabs'
-import Currencies from './Currencies'
 import Allowances from './Allowances'
 import ApprovalStages from './ApprovalStages'
 

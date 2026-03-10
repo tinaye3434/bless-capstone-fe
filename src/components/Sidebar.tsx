@@ -6,9 +6,9 @@ function Sidebar() {
       <div className='sidebar-logo'>
         {/*Logo Header */}
         <div className='logo-header' data-background-color='dark'>
-          <a href='index.html' className='logo'>
+          <a href='/' className='logo'>
             <img
-              src='assets/img/kaiadmin/logo_light.svg'
+              src='/assets/img/kaiadmin/logo_light.svg'
               alt='navbar brand'
               className='navbar-brand'
               height='20'
@@ -39,7 +39,7 @@ function Sidebar() {
             </li>
 
             <li className='nav-item'>
-              <NavLink to='/'>
+              <NavLink to='/my-claims'>
                 <i className='fas fa-file'></i>
                 <p>My Claims</p>
               </NavLink>

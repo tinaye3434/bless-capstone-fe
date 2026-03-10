@@ -4,9 +4,9 @@ function Header() {
       <div className='main-header-logo'>
         {/* Logo Header */}
         <div className='logo-header' data-background-color='dark'>
-          <a href='index.html' className='logo'>
+          <a href='/' className='logo'>
             <img
-              src='assets/img/kaiadmin/logo_light.svg'
+              src='/assets/img/kaiadmin/logo_light.svg'
               alt='navbar brand'
               className='navbar-brand'
               height='20'
@@ -89,7 +89,7 @@ function Header() {
                     <div className='notif-center'>
                       <a href='#'>
                         <div className='notif-img'>
-                          <img src='assets/img/jm_denis.jpg' alt='Img Profile' />
+                          <img src='/assets/img/jm_denis.jpg' alt='Img Profile' />
                         </div>
                         <div className='notif-content'>
                           <span className='subject'>Jimmy Denis</span>
@@ -99,7 +99,7 @@ function Header() {
                       </a>
                       <a href='#'>
                         <div className='notif-img'>
-                          <img src='assets/img/chadengle.jpg' alt='Img Profile' />
+                          <img src='/assets/img/chadengle.jpg' alt='Img Profile' />
                         </div>
                         <div className='notif-content'>
                           <span className='subject'>Chad</span>
@@ -109,7 +109,7 @@ function Header() {
                       </a>
                       <a href='#'>
                         <div className='notif-img'>
-                          <img src='assets/img/mlane.jpg' alt='Img Profile' />
+                          <img src='/assets/img/mlane.jpg' alt='Img Profile' />
                         </div>
                         <div className='notif-content'>
                           <span className='subject'>Jhon Doe</span>
@@ -119,7 +119,7 @@ function Header() {
                       </a>
                       <a href='#'>
                         <div className='notif-img'>
-                          <img src='assets/img/talha.jpg' alt='Img Profile' />
+                          <img src='/assets/img/talha.jpg' alt='Img Profile' />
                         </div>
                         <div className='notif-content'>
                           <span className='subject'>Talha</span>
@@ -180,7 +180,7 @@ function Header() {
                       </a>
                       <a href='#'>
                         <div className='notif-img'>
-                          <img src='assets/img/profile2.jpg' alt='Img Profile' />
+                          <img src='/assets/img/profile2.jpg' alt='Img Profile' />
                         </div>
                         <div className='notif-content'>
                           <span className='block'>Reza send messages to you</span>
@@ -281,7 +281,7 @@ function Header() {
               >
                 <div className='avatar-sm'>
                   <img
-                    src='assets/img/profile.jpg'
+                    src='/assets/img/profile.jpg'
                     alt='...'
                     className='avatar-img rounded-circle'
                   />
@@ -297,7 +297,7 @@ function Header() {
                     <div className='user-box'>
                       <div className='avatar-lg'>
                         <img
-                          src='assets/img/profile.jpg'
+                          src='/assets/img/profile.jpg'
                           alt='image profile'
                           className='avatar-img rounded'
                         />
