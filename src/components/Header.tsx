@@ -1,4 +1,23 @@
+import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
+import { clearAuth, getUser } from '../utils/auth'
+
 function Header() {
+  const navigate = useNavigate()
+  const user = getUser()
+
+  const handleLogout = async () => {
+    try {
+      await axios.post('/api/auth/logout/')
+    } catch (error) {
+      console.error('Logout failed', error)
+    } finally {
+      clearAuth()
+      delete axios.defaults.headers.common.Authorization
+      navigate('/login')
+    }
+  }
+
   return (
     <div className='main-header'>
       <div className='main-header-logo'>
@@ -288,7 +307,9 @@ function Header() {
                 </div>
                 <span className='profile-username'>
                   <span className='op-7'>Hi,</span>
-                  <span className='fw-bold'>Hizrian</span>
+                  <span className='fw-bold'>
+                    {user?.first_name || user?.username || 'User'}
+                  </span>
                 </span>
               </a>
               <ul className='dropdown-menu dropdown-user animated fadeIn'>
@@ -303,8 +324,8 @@ function Header() {
                         />
                       </div>
                       <div className='u-text'>
-                        <h4>Hizrian</h4>
-                        <p className='text-muted'>hello@example.com</p>
+                        <h4>{user?.first_name || user?.username || 'User'}</h4>
+                        <p className='text-muted'>{user?.email || '-'}</p>
                         <a href='profile.html' className='btn btn-xs btn-secondary btn-sm'>
                           View Profile
                         </a>
@@ -327,9 +348,13 @@ function Header() {
                       Account Setting
                     </a>
                     <div className='dropdown-divider'></div>
-                    <a className='dropdown-item' href='#'>
+                    <button
+                      type='button'
+                      className='dropdown-item'
+                      onClick={handleLogout}
+                    >
                       Logout
-                    </a>
+                    </button>
                   </li>
                 </div>
               </ul>

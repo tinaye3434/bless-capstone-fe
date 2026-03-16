@@ -182,6 +182,11 @@ function MyClaims() {
 
   return (
     <>
+      <div className='mb-4'>
+        <h2 className='page-title'>Claims</h2>
+        <p className='page-subtitle'>Search, review, and manage travel claims.</p>
+      </div>
+
       <div className='row mb-3'>
         <div className='col-md-6'>
           <Form.Control
@@ -244,6 +249,13 @@ function MyClaims() {
                           onClick={() => navigate(`/claims/${claim.id}`)}
                         >
                           View
+                        </Button>
+                        <Button
+                          variant='outline-success'
+                          size='sm'
+                          onClick={() => navigate(`/claims/${claim.id}/documents`)}
+                        >
+                          Documents
                         </Button>
                         <Button
                           variant='outline-primary'

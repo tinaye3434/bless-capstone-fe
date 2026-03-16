@@ -3,6 +3,7 @@ import {
   createBrowserRouter,
   createRoutesFromElements,
   RouterProvider,
+  Navigate,
 } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import Dashboard from './pages/Dashboard'
@@ -10,20 +11,42 @@ import MyClaims from './pages/MyClaims'
 import ClaimPreview from './pages/ClaimPreview'
 import Settings from './pages/Settings'
 import CreateClaim from './pages/CreateClaim'
+import Login from './pages/Login'
+import ClaimDocuments from './pages/ClaimDocuments'
 import 'bootstrap/dist/css/bootstrap.min.css'
+import { getToken } from './utils/auth'
+
+function RequireAuth({ children }: { children: JSX.Element }) {
+  const token = getToken()
+  if (!token) {
+    return <Navigate to='/login' replace />
+  }
+  return children
+}
 
 function App() {
   const router = createBrowserRouter(
     createRoutesFromElements(
-      <Route path='/' element={<MainLayout />}>
-        <Route index element={<Dashboard />} />
-        <Route path='/all-claims' element={<MyClaims />} />
-        <Route path='/my-claims' element={<MyClaims />} />
-        <Route path='/claims/:id' element={<ClaimPreview />} />
-        <Route path='/claims/:id/edit' element={<CreateClaim />} />
-        <Route path='/settings' element={<Settings />} />
-        <Route path='/create-claim' element={<CreateClaim />} />
-      </Route>,
+      <>
+        <Route path='/login' element={<Login />} />
+        <Route
+          path='/'
+          element={
+            <RequireAuth>
+              <MainLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<Dashboard />} />
+          <Route path='/all-claims' element={<MyClaims />} />
+          <Route path='/my-claims' element={<MyClaims />} />
+          <Route path='/claims/:id' element={<ClaimPreview />} />
+          <Route path='/claims/:id/edit' element={<CreateClaim />} />
+          <Route path='/claims/:id/documents' element={<ClaimDocuments />} />
+          <Route path='/settings' element={<Settings />} />
+          <Route path='/create-claim' element={<CreateClaim />} />
+        </Route>
+      </>,
     ),
   )
 

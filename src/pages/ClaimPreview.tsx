@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
-import { Alert, Button, Card, Col, Row, Spinner, Table } from 'react-bootstrap'
+import { Alert, Badge, Button, Card, Col, Row, Spinner, Table } from 'react-bootstrap'
 import { useNavigate, useParams } from 'react-router-dom'
 
 type ClaimDetail = {
@@ -30,6 +30,18 @@ type ClaimLine = {
   amount?: number
 }
 
+type GPSValidation = {
+  id: number | string
+  claim: number | string
+  origin: string
+  destination: string
+  base_distance_km: number
+  adjusted_distance_km: number
+  errands_factor: number
+  source?: string
+  created_at?: string
+}
+
 type Employee = {
   id: number | string
   first_name?: string
@@ -49,6 +61,7 @@ const CLAIMS_ENDPOINT = '/api/claims/'
 const CLAIM_LINES_ENDPOINT = '/api/claim-lines/'
 const EMPLOYEES_ENDPOINT = '/api/employee/'
 const ALLOWANCES_ENDPOINT = '/api/allowances/'
+const GPS_VALIDATIONS_ENDPOINT = '/api/gps-validations/'
 
 const normalizeEmployeesResponse = (payload: unknown): Employee[] => {
   if (Array.isArray(payload)) {
@@ -167,6 +180,7 @@ function ClaimPreview() {
   const [claimLines, setClaimLines] = useState<ClaimLine[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [allowances, setAllowances] = useState<AllowanceOption[]>([])
+  const [gpsValidation, setGpsValidation] = useState<GPSValidation | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -192,6 +206,17 @@ function ClaimPreview() {
         setClaimLines(claimLinesResponse)
         setEmployees(normalizeEmployeesResponse(employeesResponse.data))
         setAllowances(normalizeAllowancesResponse(allowancesResponse.data))
+
+        try {
+          const gpsResponse = await axios.get<GPSValidation[]>(GPS_VALIDATIONS_ENDPOINT)
+          const validations = Array.isArray(gpsResponse.data) ? gpsResponse.data : []
+          const matched = validations.find(
+            (validation) => String(validation.claim) === String(claimId),
+          )
+          setGpsValidation(matched ?? null)
+        } catch (err) {
+          console.warn('Failed to load GPS validations.', err)
+        }
       } catch (err) {
         setError('Failed to load claim preview.')
         console.error(err)
@@ -296,14 +321,30 @@ function ClaimPreview() {
                 <h6 className='mb-3'>Trip Summary</h6>
                 <div className='mb-2'><strong>Days:</strong> {claim.days ?? '-'}</div>
                 <div className='mb-2'><strong>Nights:</strong> {claim.nights ?? '-'}</div>
-                <div className='mb-2'><strong>User Distance:</strong> {claim.user_distance ?? '-'}</div>
-                <div className='mb-2'><strong>Calculated Distance:</strong> {claim.calculated_distance ?? '-'}</div>
+                <div className='mb-2'>
+                  <strong>User Distance:</strong> {claim.user_distance ?? '-'}
+                </div>
+                <div className='mb-2'>
+                  <strong>Calculated Distance:</strong> {claim.calculated_distance ?? '-'}
+                </div>
+                <div className='mb-2'>
+                  <strong>GPS Validation:</strong>{' '}
+                  {gpsValidation ? (
+                    <Badge bg='success' className='ms-1'>
+                      {gpsValidation.adjusted_distance_km.toFixed(1)} km (+errands)
+                    </Badge>
+                  ) : (
+                    <Badge bg='secondary' className='ms-1'>
+                      Not available
+                    </Badge>
+                  )}
+                </div>
                 <div className='mb-2'><strong>Status:</strong> {claim.status ?? '-'}</div>
                 <div className='mb-2'><strong>Stage:</strong> {claim.stage_id ?? '-'}</div>
               </Col>
             </Row>
 
-            <h6 className='mb-3'>Claim Lines</h6>
+            <h6 className='mb-3'>Claim Lines (Preview Only)</h6>
             <Table hover responsive>
               <thead>
                 <tr>

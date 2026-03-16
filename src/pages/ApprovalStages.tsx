@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
-import { Table, Button, Modal, Form, Row, Col, Alert, Spinner } from 'react-bootstrap'
+import { Table, Button, Modal, Form, Row, Col, Alert, Spinner, Badge } from 'react-bootstrap'
 
 type ApprovalStage = {
   id: number
@@ -110,6 +110,7 @@ function ApprovalStages() {
   const [editingStageId, setEditingStageId] = useState<number | null>(null)
   const [managingStage, setManagingStage] = useState<ApprovalStage | null>(null)
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([])
+  const [employeeSearch, setEmployeeSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingEmployees, setLoadingEmployees] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -194,6 +195,7 @@ function ApprovalStages() {
     setShowEmployeesModal(false)
     setManagingStage(null)
     setSelectedEmployeeIds([])
+    setEmployeeSearch('')
   }
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -249,6 +251,29 @@ function ApprovalStages() {
     setSelectedEmployeeIds((prev) =>
       prev.includes(employeeId) ? prev.filter((id) => id !== employeeId) : [...prev, employeeId]
     )
+  }
+
+  const filteredEmployees = useMemo(() => {
+    const query = employeeSearch.trim().toLowerCase()
+    if (!query) {
+      return employees
+    }
+    return employees.filter((employee) => {
+      const name = `${employee.first_name} ${employee.surname}`.toLowerCase()
+      return (
+        name.includes(query) ||
+        employee.email.toLowerCase().includes(query) ||
+        String(employee.id).includes(query)
+      )
+    })
+  }, [employees, employeeSearch])
+
+  const handleSelectAll = () => {
+    setSelectedEmployeeIds(filteredEmployees.map((employee) => employee.id))
+  }
+
+  const handleClearAll = () => {
+    setSelectedEmployeeIds([])
   }
 
   const handleSaveEmployees = async () => {
@@ -382,6 +407,9 @@ function ApprovalStages() {
                     <td>{index + 1}</td>
                     <td>{stage.title}</td>
                     <td>
+                      <Badge bg='secondary' className='me-2'>
+                        {extractStageEmployeeIds(stage).length} assigned
+                      </Badge>
                       <Button
                         size='sm'
                         variant='outline-primary'
@@ -455,14 +483,44 @@ function ApprovalStages() {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          <div className='d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2'>
+            <div className='text-muted'>
+              Selected {selectedEmployeeIds.length} of {employees.length}
+            </div>
+            <div className='d-flex gap-2'>
+              <Button
+                size='sm'
+                variant='outline-secondary'
+                onClick={handleSelectAll}
+                disabled={savingEmployees || loadingEmployees || employees.length === 0}
+              >
+                Select All
+              </Button>
+              <Button
+                size='sm'
+                variant='outline-secondary'
+                onClick={handleClearAll}
+                disabled={savingEmployees || loadingEmployees || selectedEmployeeIds.length === 0}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+          <Form.Control
+            className='mb-3'
+            placeholder='Search employees by name, email, or ID...'
+            value={employeeSearch}
+            onChange={(event) => setEmployeeSearch(event.target.value)}
+            disabled={loadingEmployees}
+          />
           {loadingEmployees ? (
             <div className='text-center py-3'>
               <Spinner animation='border' size='sm' className='me-2' />
               Loading employees...
             </div>
-          ) : employees.length === 0 ? (
+          ) : filteredEmployees.length === 0 ? (
             <Alert variant='warning' className='mb-0'>
-              No employees found.
+              No employees match your search.
             </Alert>
           ) : (
             <div style={{ maxHeight: 420, overflowY: 'auto' }}>
@@ -475,7 +533,7 @@ function ApprovalStages() {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((employee) => (
+                  {filteredEmployees.map((employee) => (
                     <tr key={employee.id}>
                       <td>
                         <Form.Check

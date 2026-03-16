@@ -1,6 +1,10 @@
 import { NavLink } from 'react-router-dom'
+import { isAdmin, isApprover } from '../utils/auth'
 
 function Sidebar() {
+  const canManageClaims = isAdmin() || isApprover()
+  const showSettings = isAdmin()
+
   return (
     <div className='sidebar' data-background-color='dark'>
       <div className='sidebar-logo'>
@@ -52,19 +56,14 @@ function Sidebar() {
               <h4 className='text-section'>Management</h4>
             </li>
 
-            <li className='nav-item'>
-              <NavLink to='/claim-approval'>
-                <i className='fas fa-gavel'></i>
-                <p>Claim Approval</p>
-              </NavLink>
-            </li>
-
-            <li className='nav-item'>
-              <NavLink to='/all-claims'>
-                <i className='fas fa-copy'></i>
-                <p>All Claims</p>
-              </NavLink>
-            </li>
+            {canManageClaims ? (
+              <li className='nav-item'>
+                <NavLink to='/all-claims'>
+                  <i className='fas fa-copy'></i>
+                  <p>All Claims</p>
+                </NavLink>
+              </li>
+            ) : null}
 
             <li className='nav-section'>
               <span className='sidebar-mini-icon'>
@@ -73,12 +72,14 @@ function Sidebar() {
               <h4 className='text-section'>Configurations</h4>
             </li>
 
-            <li className='nav-item'>
-              <NavLink to='/settings'>
-                <i className='fas fa-wrench'></i>
-                <p>Settings</p>
-              </NavLink>
-            </li>
+            {showSettings ? (
+              <li className='nav-item'>
+                <NavLink to='/settings'>
+                  <i className='fas fa-wrench'></i>
+                  <p>Settings</p>
+                </NavLink>
+              </li>
+            ) : null}
           </ul>
         </div>
       </div>
