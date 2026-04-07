@@ -19,7 +19,7 @@ type ClaimDetail = {
   total?: number
   total_allowances?: number
   stage_id?: number | string
-  status?: string
+  approval_status?: string
 }
 
 type ClaimLine = {
@@ -62,6 +62,13 @@ const CLAIM_LINES_ENDPOINT = '/api/claim-lines/'
 const EMPLOYEES_ENDPOINT = '/api/employee/'
 const ALLOWANCES_ENDPOINT = '/api/allowances/'
 const GPS_VALIDATIONS_ENDPOINT = '/api/gps-validations/'
+const RISK_SCORE_ENDPOINT = '/api/claims/'
+
+type RiskScore = {
+  score?: number
+  risk_level?: string
+  model_snapshot_id?: number
+}
 
 const normalizeEmployeesResponse = (payload: unknown): Employee[] => {
   if (Array.isArray(payload)) {
@@ -183,6 +190,9 @@ function ClaimPreview() {
   const [gpsValidation, setGpsValidation] = useState<GPSValidation | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [riskScore, setRiskScore] = useState<RiskScore | null>(null)
+  const [riskLoading, setRiskLoading] = useState(false)
+  const [riskError, setRiskError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!claimId) {
@@ -226,6 +236,33 @@ function ClaimPreview() {
     }
 
     void fetchClaim()
+  }, [claimId])
+
+  useEffect(() => {
+    if (!claimId) {
+      return
+    }
+
+    const fetchRiskScore = async () => {
+      setRiskLoading(true)
+      setRiskError(null)
+
+      try {
+        const response = await axios.get<RiskScore>(`${RISK_SCORE_ENDPOINT}${claimId}/risk-score/`)
+        setRiskScore(response.data)
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          const detail = (err.response?.data as { detail?: string } | undefined)?.detail
+          setRiskError(detail || 'Risk score not available.')
+        } else {
+          setRiskError('Risk score not available.')
+        }
+      } finally {
+        setRiskLoading(false)
+      }
+    }
+
+    void fetchRiskScore()
   }, [claimId])
 
   const employeeName = useMemo(() => {
@@ -339,8 +376,25 @@ function ClaimPreview() {
                     </Badge>
                   )}
                 </div>
-                <div className='mb-2'><strong>Status:</strong> {claim.status ?? '-'}</div>
+                <div className='mb-2'>
+                  <strong>Approval Status:</strong> {claim.approval_status ?? '-'}
+                </div>
                 <div className='mb-2'><strong>Stage:</strong> {claim.stage_id ?? '-'}</div>
+                <div className='mb-2'>
+                  <strong>Risk Score:</strong>{' '}
+                  {riskLoading ? (
+                    <span>Loading...</span>
+                  ) : riskScore?.score !== undefined ? (
+                    <>
+                      {riskScore.score.toFixed(1)}{' '}
+                      <Badge bg='info' className='ms-1 text-capitalize'>
+                        {riskScore.risk_level ?? 'unknown'}
+                      </Badge>
+                    </>
+                  ) : (
+                    <span className='text-muted'>{riskError ?? 'Not available'}</span>
+                  )}
+                </div>
               </Col>
             </Row>
 

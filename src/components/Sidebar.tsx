@@ -48,6 +48,12 @@ function Sidebar() {
                 <p>My Claims</p>
               </NavLink>
             </li>
+            <li className='nav-item'>
+              <NavLink to='/submissions'>
+                <i className='fas fa-clipboard-check'></i>
+                <p>Submissions</p>
+              </NavLink>
+            </li>
 
             <li className='nav-section'>
               <span className='sidebar-mini-icon'>
@@ -61,6 +67,15 @@ function Sidebar() {
                 <NavLink to='/all-claims'>
                   <i className='fas fa-copy'></i>
                   <p>All Claims</p>
+                </NavLink>
+              </li>
+            ) : null}
+
+            {showSettings ? (
+              <li className='nav-item'>
+                <NavLink to='/fraud-training'>
+                  <i className='fas fa-brain'></i>
+                  <p>Fraud Training</p>
                 </NavLink>
               </li>
             ) : null}

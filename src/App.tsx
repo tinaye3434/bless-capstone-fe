@@ -8,11 +8,14 @@ import {
 import MainLayout from './layouts/MainLayout'
 import Dashboard from './pages/Dashboard'
 import MyClaims from './pages/MyClaims'
+import Submissions from './pages/Submissions'
 import ClaimPreview from './pages/ClaimPreview'
 import Settings from './pages/Settings'
 import CreateClaim from './pages/CreateClaim'
 import Login from './pages/Login'
 import ClaimDocuments from './pages/ClaimDocuments'
+import ClaimDocumentsSummary from './pages/ClaimDocumentsSummary'
+import FraudTraining from './pages/FraudTraining'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import { getToken } from './utils/auth'
 
@@ -40,11 +43,14 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path='/all-claims' element={<MyClaims />} />
           <Route path='/my-claims' element={<MyClaims />} />
+          <Route path='/submissions' element={<Submissions />} />
           <Route path='/claims/:id' element={<ClaimPreview />} />
           <Route path='/claims/:id/edit' element={<CreateClaim />} />
           <Route path='/claims/:id/documents' element={<ClaimDocuments />} />
+          <Route path='/claims/:id/documents/summary' element={<ClaimDocumentsSummary />} />
           <Route path='/settings' element={<Settings />} />
           <Route path='/create-claim' element={<CreateClaim />} />
+          <Route path='/fraud-training' element={<FraudTraining />} />
         </Route>
       </>,
     ),

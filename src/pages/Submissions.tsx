@@ -182,7 +182,7 @@ const mapClaim = (
   }
 }
 
-function MyClaims() {
+function Submissions() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [claims, setClaims] = useState<Claim[]>([])
@@ -200,18 +200,17 @@ function MyClaims() {
           axios.get(EMPLOYEES_ENDPOINT),
           axios.get(APPROVAL_STAGES_ENDPOINT),
         ])
-        console.log('Claims API response:', claimsResponse.data)
         const normalized = normalizeClaimsResponse(claimsResponse.data)
-        console.log('Normalized claims:', normalized)
         const employees = normalizeEmployeesResponse(employeesResponse.data)
         const stages = normalizeStagesResponse(stagesResponse.data)
         const finalStageId = getFinalStageId(stages)
         const employeeMap = new Map(
           employees.map((employee) => [String(employee.id), getEmployeeLabel(employee)]),
         )
-        setClaims(normalized.map((claim) => mapClaim(claim, employeeMap, finalStageId)))
+        const mappedClaims = normalized.map((claim) => mapClaim(claim, employeeMap, finalStageId))
+        setClaims(mappedClaims.filter((claim) => claim.documents_submitted))
       } catch (err) {
-        setError('Failed to load claims.')
+        setError('Failed to load submissions.')
         console.error(err)
       } finally {
         setLoading(false)
@@ -242,22 +241,17 @@ function MyClaims() {
   return (
     <>
       <div className='mb-4'>
-        <h2 className='page-title'>Claims</h2>
-        <p className='page-subtitle'>Search, review, and manage travel claims.</p>
+        <h2 className='page-title'>Submissions</h2>
+        <p className='page-subtitle'>Track submitted receipts and OCR results.</p>
       </div>
 
       <div className='row mb-3'>
         <div className='col-md-6'>
           <Form.Control
-            placeholder='Search claims by employee, purpose, route, or claim ID...'
+            placeholder='Search submissions by employee, purpose, route, or claim ID...'
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-        </div>
-        <div className='col-md-6 d-flex justify-content-md-end mt-2 mt-md-0'>
-          <Button variant='primary' onClick={() => navigate('/create-claim')}>
-            Create Claim
-          </Button>
         </div>
       </div>
 
@@ -282,13 +276,13 @@ function MyClaims() {
                 <tr>
                   <td colSpan={9} className='text-center py-4'>
                     <Spinner animation='border' size='sm' className='me-2' />
-                    Loading claims...
+                    Loading submissions...
                   </td>
                 </tr>
               ) : filteredClaims.length === 0 ? (
                 <tr>
                   <td colSpan={9} className='text-center py-4'>
-                    No claims found.
+                    No submissions found.
                   </td>
                 </tr>
               ) : (
@@ -314,16 +308,9 @@ function MyClaims() {
                         <Button
                           variant='outline-success'
                           size='sm'
-                          onClick={() => navigate(`/claims/${claim.id}/documents`)}
+                          onClick={() => navigate(`/claims/${claim.id}/documents/summary`)}
                         >
-                          Documents
-                        </Button>
-                        <Button
-                          variant='outline-primary'
-                          size='sm'
-                          onClick={() => navigate(`/claims/${claim.id}/edit`)}
-                        >
-                          Edit
+                          View Results
                         </Button>
                       </div>
                     </td>
@@ -343,4 +330,4 @@ function MyClaims() {
   )
 }
 
-export default MyClaims
+export default Submissions

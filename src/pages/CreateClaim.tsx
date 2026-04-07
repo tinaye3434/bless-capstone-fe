@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
-import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap'
+import { Alert, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap'
 import { useNavigate, useParams } from 'react-router-dom'
 
 type ClaimForm = {
@@ -294,11 +294,7 @@ function CreateClaim() {
   const [originSuggestions, setOriginSuggestions] = useState<string[]>([])
   const [destinationSuggestions, setDestinationSuggestions] = useState<string[]>([])
   const [suggestError, setSuggestError] = useState<string | null>(null)
-  const [distancePreview, setDistancePreview] = useState<{ base: number; adjusted: number } | null>(
-    null,
-  )
-  const [distanceLoading, setDistanceLoading] = useState(false)
-  const [distanceError, setDistanceError] = useState<string | null>(null)
+
 
   useEffect(() => {
     const fetchOptions = async () => {
@@ -416,85 +412,6 @@ function CreateClaim() {
     }
   }, [formData.destination])
 
-  useEffect(() => {
-    const controller = new AbortController()
-    const fetchCoords = async (query: string): Promise<Coordinates | null> => {
-      if (!query || query.trim().length < 2) {
-        return null
-      }
-      const params = new URLSearchParams({
-        q: query,
-        format: 'json',
-        addressdetails: '1',
-        limit: '1',
-        countrycodes: 'zw',
-      })
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${params.toString()}`,
-        { signal: controller.signal, headers: { Accept: 'application/json' } },
-      )
-      const data = (await response.json()) as Array<{ lat?: string; lon?: string }>
-      if (!data || data.length === 0) {
-        return null
-      }
-      return {
-        lat: Number(data[0].lat),
-        lon: Number(data[0].lon),
-      }
-    }
-
-    const haversineKm = (a: Coordinates, b: Coordinates) => {
-      const radius = 6371
-      const dLat = ((b.lat - a.lat) * Math.PI) / 180
-      const dLon = ((b.lon - a.lon) * Math.PI) / 180
-      const lat1 = (a.lat * Math.PI) / 180
-      const lat2 = (b.lat * Math.PI) / 180
-      const h =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
-      return 2 * radius * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
-    }
-
-    const computeDistance = async () => {
-      if (!formData.origin || !formData.destination) {
-        setDistancePreview(null)
-        setDistanceError(null)
-        return
-      }
-      setDistanceLoading(true)
-      setDistanceError(null)
-      try {
-        const [origin, destination] = await Promise.all([
-          fetchCoords(formData.origin),
-          fetchCoords(formData.destination),
-        ])
-        if (!origin || !destination) {
-          setDistancePreview(null)
-          setDistanceError('Unable to estimate distance for these locations yet.')
-          return
-        }
-        const base = haversineKm(origin, destination)
-        const adjusted = base * 1.2
-        setDistancePreview({ base, adjusted })
-      } catch (error) {
-        if ((error as { name?: string }).name !== 'AbortError') {
-          setDistancePreview(null)
-          setDistanceError('Failed to calculate distance preview.')
-        }
-      } finally {
-        setDistanceLoading(false)
-      }
-    }
-
-    const timeout = window.setTimeout(() => {
-      void computeDistance()
-    }, 500)
-
-    return () => {
-      controller.abort()
-      window.clearTimeout(timeout)
-    }
-  }, [formData.origin, formData.destination])
 
   useEffect(() => {
     if (!claimId) {
@@ -695,7 +612,6 @@ function CreateClaim() {
             {loadError ? <Alert variant='danger'>{loadError}</Alert> : null}
             {submitError ? <Alert variant='danger'>{submitError}</Alert> : null}
             {suggestError ? <Alert variant='warning'>{suggestError}</Alert> : null}
-            {distanceError ? <Alert variant='warning'>{distanceError}</Alert> : null}
             {submitSuccess ? <Alert variant='success'>{submitSuccess}</Alert> : null}
             {loadingOptions || loadingClaim ? (
               <div className='d-flex align-items-center mb-3'>
@@ -826,43 +742,11 @@ function CreateClaim() {
                 </Form.Group>
                 <Col md={4} className='d-flex align-items-end'>
                   <div className='text-muted small'>
-                    Distance is calculated automatically (+20% local errands).
+                    Distance is calculated automatically.
                   </div>
                 </Col>
               </Row>
 
-              <Row className='mb-4'>
-                <Col>
-                  <Card className='border-0 bg-light'>
-                    <Card.Body className='d-flex align-items-center justify-content-between'>
-                      <div>
-                        <div className='text-muted small mb-1'>Estimated Distance</div>
-                        <div className='fw-semibold'>
-                          {distanceLoading
-                            ? 'Calculating...'
-                            : distancePreview
-                              ? `${distancePreview.adjusted.toFixed(1)} km (includes errands)`
-                              : 'Enter origin and destination'}
-                        </div>
-                        {distancePreview ? (
-                          <div className='text-muted small'>
-                            Base route: {distancePreview.base.toFixed(1)} km
-                          </div>
-                        ) : null}
-                      </div>
-                      {distancePreview ? (
-                        <Badge bg='success' className='px-3 py-2'>
-                          Auto-calculated
-                        </Badge>
-                      ) : (
-                        <Badge bg='secondary' className='px-3 py-2'>
-                          Waiting
-                        </Badge>
-                      )}
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
 
               <div className='d-flex justify-content-between align-items-center mb-2'>
                 <h6 className='mb-0'>Allowances</h6>
@@ -969,3 +853,5 @@ function CreateClaim() {
 }
 
 export default CreateClaim
+
+

@@ -130,10 +130,11 @@ function ClaimDocuments() {
   const [claimLines, setClaimLines] = useState<ClaimLine[]>([])
   const [allowances, setAllowances] = useState<AllowanceOption[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [pendingUploads, setPendingUploads] = useState<Record<string, File[]>>({})
   const [actualMileage, setActualMileage] = useState<string>('')
   const [loading, setLoading] = useState(false)
-  const [savingMileage, setSavingMileage] = useState(false)
   const [uploadingLineId, setUploadingLineId] = useState<string | null>(null)
+  const [submittingDocuments, setSubmittingDocuments] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -202,50 +203,70 @@ function ClaimDocuments() {
     return <Badge bg='secondary'>{status}</Badge>
   }
 
-  const handleUpload = async (lineId: string, files: FileList | null) => {
+  const handleFileSelect = (lineId: string, files: FileList | null) => {
     if (!files || files.length === 0) {
+      setPendingUploads((prev) => {
+        const next = { ...prev }
+        delete next[lineId]
+        return next
+      })
       return
     }
-    setError(null)
-    setSuccess(null)
-    setUploadingLineId(lineId)
 
-    try {
-      const formData = new FormData()
-      Array.from(files).forEach((file) => formData.append('files', file))
-      const response = await axios.post(
-        `${CLAIM_LINES_ENDPOINT}${lineId}/receipts/`,
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
-      )
-      const created = response.data as Receipt[]
-      setReceipts((prev) => [...created, ...prev])
-      setSuccess('Receipts uploaded.')
-    } catch (err) {
-      setError('Failed to upload receipts.')
-      console.error(err)
-    } finally {
-      setUploadingLineId(null)
+    const selected = Array.from(files)
+    const rejected = selected.filter(
+      (file) => !file.type || !file.type.toLowerCase().startsWith('image/'),
+    )
+    if (rejected.length > 0) {
+      setError(`Only image uploads are supported. Invalid files: ${rejected.map((f) => f.name).join(', ')}`)
+      return
     }
+
+    setError(null)
+    setPendingUploads((prev) => ({ ...prev, [lineId]: selected }))
   }
 
-  const handleSaveMileage = async () => {
+  const handleSubmitDocuments = async () => {
     if (!claimId) {
       return
     }
-    setSavingMileage(true)
+    setSubmittingDocuments(true)
     setError(null)
     setSuccess(null)
     try {
+      const lineIds = Object.keys(pendingUploads)
+      for (const lineId of lineIds) {
+        const files = pendingUploads[lineId]
+        if (!files || files.length === 0) {
+          continue
+        }
+        setUploadingLineId(lineId)
+        const formData = new FormData()
+        files.forEach((file) => formData.append('files', file))
+        const response = await axios.post(
+          `${CLAIM_LINES_ENDPOINT}${lineId}/receipts/`,
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' } },
+        )
+        const created = response.data as Receipt[]
+        setReceipts((prev) => [...created, ...prev])
+      }
+      setPendingUploads({})
+      setUploadingLineId(null)
+
       await axios.patch(`${CLAIMS_ENDPOINT}${claimId}/`, {
         actual_mileage: actualMileage ? Number(actualMileage) : null,
       })
-      setSuccess('Mileage updated.')
+      const response = await axios.post(`${CLAIMS_ENDPOINT}${claimId}/submit-documents/`)
+      const detail =
+        (response.data && typeof response.data.detail === 'string' && response.data.detail) ||
+        'Document processing started in the background.'
+      setSuccess(detail)
     } catch (err) {
-      setError('Failed to update mileage.')
+      setError('Failed to submit documents or update mileage.')
       console.error(err)
     } finally {
-      setSavingMileage(false)
+      setSubmittingDocuments(false)
     }
   }
 
@@ -268,96 +289,110 @@ function ClaimDocuments() {
       {error ? <Alert variant='danger'>{error}</Alert> : null}
       {success ? <Alert variant='success'>{success}</Alert> : null}
 
-      {loading ? (
-        <div className='d-flex align-items-center'>
-          <Spinner animation='border' size='sm' className='me-2' />
-          Loading documents...
-        </div>
-      ) : (
-        <>
-          <Card className='mb-4'>
-            <Card.Body>
-              <Row className='align-items-end'>
-                <Col md={8}>
-                  <Form.Group controlId='actualMileage'>
-                    <Form.Label>Actual Mileage (km)</Form.Label>
-                    <Form.Control
-                      type='number'
-                      min='0'
-                      step='0.1'
-                      value={actualMileage}
-                      onChange={(event) => setActualMileage(event.target.value)}
-                      placeholder='Enter actual mileage after trip completion'
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={4} className='d-flex justify-content-end'>
-                  <Button variant='primary' onClick={handleSaveMileage} disabled={savingMileage}>
-                    {savingMileage ? 'Saving...' : 'Save Mileage'}
-                  </Button>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
+      <Form
+        onSubmit={(event) => {
+          event.preventDefault()
+          void handleSubmitDocuments()
+        }}
+      >
+        {loading ? (
+          <div className='d-flex align-items-center'>
+            <Spinner animation='border' size='sm' className='me-2' />
+            Loading documents...
+          </div>
+        ) : (
+          <>
+              <Card className='mb-4'>
+              <Card.Body>
+                <Row className='align-items-end'>
+                  <Col md={8}>
+                    <Form.Group controlId='actualMileage'>
+                      <Form.Label>Actual Mileage (km)</Form.Label>
+                      <Form.Control
+                        type='number'
+                        min='0'
+                        step='0.1'
+                        value={actualMileage}
+                        onChange={(event) => setActualMileage(event.target.value)}
+                        placeholder='Enter actual mileage after trip completion'
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+              </Card.Body>
+            </Card>
 
-          <Card>
-            <Card.Body>
-              <h6 className='mb-3'>Receipts per Allowance</h6>
-              <Table hover responsive>
-                <thead>
-                  <tr>
-                    <th>Allowance</th>
-                    <th>Receipts</th>
-                    <th>OCR Status</th>
-                    <th>Upload</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lineItems.length === 0 ? (
+            <Card className='mb-4'>
+              <Card.Body>
+                <h6 className='mb-3'>Receipts per Allowance</h6>
+                <Table hover responsive>
+                  <thead>
                     <tr>
-                      <td colSpan={4} className='text-center py-3'>
-                        No claim lines found.
-                      </td>
+                      <th>Allowance</th>
+                      <th>Receipts</th>
+                      <th>OCR Status</th>
+                      <th>Upload</th>
                     </tr>
-                  ) : (
-                    lineItems.map((line) => {
-                      const statuses = line.receipts
-                        .map((receipt) => receipt.ocr_result?.match_status)
-                        .filter((status): status is string => Boolean(status))
-                      const statusSummary =
-                        statuses.length === 0
-                          ? renderStatusBadge()
-                          : statuses.every((status) => status === 'valid')
-                            ? renderStatusBadge('valid')
-                            : statuses.some((status) => status === 'mismatch')
-                              ? renderStatusBadge('mismatch')
-                              : renderStatusBadge('pending')
+                  </thead>
+                  <tbody>
+                    {lineItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className='text-center py-3'>
+                          No claim lines found.
+                        </td>
+                      </tr>
+                    ) : (
+                      lineItems.map((line) => {
+                        const statuses = line.receipts
+                          .map((receipt) => receipt.ocr_result?.match_status)
+                          .filter((status): status is string => Boolean(status))
+                        const statusSummary =
+                          statuses.length === 0
+                            ? renderStatusBadge()
+                            : statuses.every((status) => status === 'valid')
+                              ? renderStatusBadge('valid')
+                              : statuses.some((status) => status === 'mismatch')
+                                ? renderStatusBadge('mismatch')
+                                : renderStatusBadge('pending')
 
-                      return (
-                        <tr key={String(line.id)}>
-                          <td>{line.allowance}</td>
-                          <td>{line.receipts.length}</td>
-                          <td>{statusSummary}</td>
-                          <td>
-                            <Form.Control
-                              type='file'
-                              multiple
-                              onChange={(event) =>
-                                handleUpload(String(line.id), event.target.files)
-                              }
-                              disabled={uploadingLineId === String(line.id)}
-                            />
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </>
-      )}
+                        return (
+                          <tr key={String(line.id)}>
+                            <td>{line.allowance}</td>
+                            <td>{line.receipts.length}</td>
+                            <td>{statusSummary}</td>
+                            <td>
+                              <Form.Control
+                                type='file'
+                                accept='image/*'
+                                multiple
+                                onChange={(event) =>
+                                  handleFileSelect(String(line.id), event.target.files)
+                                }
+                                disabled={uploadingLineId === String(line.id)}
+                              />
+                              {pendingUploads[String(line.id)]?.length ? (
+                                <div className='text-muted mt-1'>
+                                  {pendingUploads[String(line.id)].length} file(s) selected
+                                </div>
+                              ) : null}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </Table>
+              </Card.Body>
+            </Card>
+
+            <div className='d-flex justify-content-end'>
+              <Button type='submit' variant='primary' disabled={submittingDocuments || loading}>
+                {submittingDocuments ? 'Submitting...' : 'Submit Documents'}
+              </Button>
+            </div>
+          </>
+        )}
+      </Form>
     </div>
   )
 }
