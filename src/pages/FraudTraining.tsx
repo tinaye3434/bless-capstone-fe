@@ -197,7 +197,8 @@ function FraudTraining() {
                 type='file'
                 accept='.csv,text/csv'
                 onChange={(event) => {
-                  const selected = event.target.files?.[0] ?? null
+                  const input = event.currentTarget as HTMLInputElement
+                  const selected = input.files?.[0] ?? null
                   setFile(selected)
                 }}
               />

@@ -56,11 +56,6 @@ type ClaimLine = {
   amount?: number
 }
 
-type Coordinates = {
-  lat: number
-  lon: number
-}
-
 const EMPLOYEES_ENDPOINT = '/api/employee/'
 const CITIES_ENDPOINT = '/api/cities/'
 const ALLOWANCES_ENDPOINT = '/api/allowances/'
@@ -290,7 +285,6 @@ function CreateClaim() {
   const [savingClaim, setSavingClaim] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState(false)
   const [originSuggestions, setOriginSuggestions] = useState<string[]>([])
   const [destinationSuggestions, setDestinationSuggestions] = useState<string[]>([])
   const [suggestError, setSuggestError] = useState<string | null>(null)
@@ -587,7 +581,6 @@ function CreateClaim() {
         ? await axios.put(`${CLAIMS_ENDPOINT}${claimId}/`, payload)
         : await axios.post(CLAIMS_ENDPOINT, payload)
       console.log('Save claim response:', response.data)
-      setSubmitted(true)
       setSubmitSuccess(isEditing ? 'Claim updated successfully.' : 'Claim submitted successfully.')
       navigate('/my-claims')
     } catch (error) {

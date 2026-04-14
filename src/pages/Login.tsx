@@ -2,7 +2,7 @@ import { useState } from 'react'
 import axios from 'axios'
 import { Alert, Button, Card, Form, Spinner } from 'react-bootstrap'
 import { useNavigate } from 'react-router-dom'
-import { setAuth } from '../utils/auth'
+import { setAuth, type AuthPayload } from '../utils/auth'
 
 const LOGIN_ENDPOINT = '/api/auth/login/'
 
@@ -23,7 +23,7 @@ function Login() {
         username: username.trim(),
         password,
       })
-      const payload = response.data as { token: string; user: unknown }
+      const payload = response.data as AuthPayload
       setAuth(payload)
       axios.defaults.headers.common.Authorization = `Token ${payload.token}`
       navigate('/')

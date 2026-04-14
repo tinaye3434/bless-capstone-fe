@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { isAdmin, isApprover } from '../utils/auth'
+import DashboardZimbabweHeatmap from '../components/DashboardZimbabweHeatmap'
 
 function Dashboard() {
   const canManageClaims = isAdmin() || isApprover()
@@ -90,6 +91,16 @@ function Dashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className='mt-4'>
+        <div className='mb-3'>
+          <h4 className='mb-1'>Zimbabwe Travel Heat Map</h4>
+          <p className='text-muted mb-0'>
+            Claim origins and destinations plotted against your Zimbabwe location registry.
+          </p>
+        </div>
+        <DashboardZimbabweHeatmap />
       </div>
     </div>
   )

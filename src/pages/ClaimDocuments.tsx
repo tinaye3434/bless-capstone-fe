@@ -126,7 +126,6 @@ const getAllowanceLabel = (allowance: AllowanceOption): string => {
 function ClaimDocuments() {
   const { id: claimId } = useParams()
   const navigate = useNavigate()
-  const [claim, setClaim] = useState<ClaimDetail | null>(null)
   const [claimLines, setClaimLines] = useState<ClaimLine[]>([])
   const [allowances, setAllowances] = useState<AllowanceOption[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
@@ -155,7 +154,6 @@ function ClaimDocuments() {
             axios.get<Receipt[]>(RECEIPTS_ENDPOINT),
           ])
 
-        setClaim(claimResponse.data)
         setClaimLines(linesResponse)
         setAllowances(normalizeAllowancesResponse(allowancesResponse.data))
         setReceipts(Array.isArray(receiptsResponse.data) ? receiptsResponse.data : [])
@@ -365,9 +363,10 @@ function ClaimDocuments() {
                                 type='file'
                                 accept='image/*'
                                 multiple
-                                onChange={(event) =>
-                                  handleFileSelect(String(line.id), event.target.files)
-                                }
+                                onChange={(event) => {
+                                  const input = event.currentTarget as HTMLInputElement
+                                  handleFileSelect(String(line.id), input.files)
+                                }}
                                 disabled={uploadingLineId === String(line.id)}
                               />
                               {pendingUploads[String(line.id)]?.length ? (

@@ -71,11 +71,11 @@ function Sidebar() {
               </li>
             ) : null}
 
-            {showSettings ? (
+            {canManageClaims ? (
               <li className='nav-item'>
-                <NavLink to='/fraud-training'>
-                  <i className='fas fa-brain'></i>
-                  <p>Fraud Training</p>
+                <NavLink to='/pending-claims'>
+                  <i className='fas fa-hourglass-half'></i>
+                  <p>Pending Claims</p>
                 </NavLink>
               </li>
             ) : null}
@@ -92,6 +92,15 @@ function Sidebar() {
                 <NavLink to='/settings'>
                   <i className='fas fa-wrench'></i>
                   <p>Settings</p>
+                </NavLink>
+              </li>
+            ) : null}
+
+            {showSettings ? (
+              <li className='nav-item'>
+                <NavLink to='/fraud-training'>
+                  <i className='fas fa-brain'></i>
+                  <p>Fraud Training</p>
                 </NavLink>
               </li>
             ) : null}

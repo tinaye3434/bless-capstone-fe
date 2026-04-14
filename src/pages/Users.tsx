@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import { Alert, Button, Spinner, Table } from 'react-bootstrap'
+import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap'
+import { getUser, updateStoredUser } from '../utils/auth'
 
 type User = {
   id: number | string
@@ -13,13 +14,21 @@ type User = {
 }
 
 const USERS_ENDPOINT = '/api/users/'
+const USER_ROLE_ENDPOINT = (userId: number | string) => `/api/users/${userId}/role/`
 const RESET_ENDPOINT = '/api/auth/password-reset/'
+const ROLE_OPTIONS = [
+  { value: 'EMPLOYEE', label: 'Employee' },
+  { value: 'APPROVER', label: 'Approver' },
+  { value: 'ADMIN', label: 'System Administrator' },
+  { value: 'SUPERUSER', label: 'Super User' },
+]
 
 function Users() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resettingId, setResettingId] = useState<string | null>(null)
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
@@ -57,6 +66,32 @@ function Users() {
       console.error(err)
     } finally {
       setResettingId(null)
+    }
+  }
+
+  const handleRoleChange = async (userId: string, role: string) => {
+    setUpdatingRoleId(userId)
+    setError(null)
+    setSuccess(null)
+    try {
+      const response = await axios.post<User>(USER_ROLE_ENDPOINT(userId), { role })
+      const updatedUser = response.data
+      setUsers((currentUsers) =>
+        currentUsers.map((user) =>
+          String(user.id) === userId ? { ...user, role: updatedUser.role } : user,
+        ),
+      )
+
+      if (String(getUser()?.id) === userId) {
+        updateStoredUser({ role: updatedUser.role })
+      }
+
+      setSuccess(`Role updated to ${updatedUser.role}.`)
+    } catch (err) {
+      setError('Failed to update role.')
+      console.error(err)
+    } finally {
+      setUpdatingRoleId(null)
     }
   }
 
@@ -102,14 +137,31 @@ function Users() {
                   <td>{getDisplayName(user)}</td>
                   <td>{user.username}</td>
                   <td>{user.email || '-'}</td>
-                  <td>{user.role || '-'}</td>
+                  <td style={{ minWidth: 220 }}>
+                    <Form.Select
+                      size='sm'
+                      value={user.role || 'EMPLOYEE'}
+                      onChange={(event) =>
+                        void handleRoleChange(String(user.id), event.target.value)
+                      }
+                      disabled={updatingRoleId === String(user.id)}
+                    >
+                      {ROLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </td>
                   <td>{user.is_active ? 'Active' : 'Inactive'}</td>
                   <td>
                     <Button
                       variant='outline-primary'
                       size='sm'
                       onClick={() => handleResetPassword(String(user.id))}
-                      disabled={resettingId === String(user.id)}
+                      disabled={
+                        resettingId === String(user.id) || updatingRoleId === String(user.id)
+                      }
                     >
                       {resettingId === String(user.id) ? 'Resetting...' : 'Reset Password'}
                     </Button>
