@@ -68,6 +68,13 @@ type RiskScore = {
   score?: number
   risk_level?: string
   model_snapshot_id?: number
+  auto_approve?: boolean
+  manual_review_required?: boolean
+  rule_flags?: Array<{
+    code?: string
+    severity?: string
+    message?: string
+  }>
 }
 
 const normalizeEmployeesResponse = (payload: unknown): Employee[] => {
@@ -305,6 +312,19 @@ function ClaimPreview() {
     return lineItems.reduce((sum, item) => sum + item.total, 0)
   }, [claim, lineItems])
 
+  const riskBadgeVariant = useMemo(() => {
+    const level = (riskScore?.risk_level ?? '').toLowerCase()
+    if (level === 'high') {
+      return 'danger'
+    }
+    if (level === 'medium') {
+      return 'warning'
+    }
+    return 'success'
+  }, [riskScore])
+
+  const ruleFlags = riskScore?.rule_flags ?? []
+
   if (!claimId) {
     return <Alert variant='danger'>Missing claim id.</Alert>
   }
@@ -387,7 +407,7 @@ function ClaimPreview() {
                   ) : riskScore?.score !== undefined ? (
                     <>
                       {riskScore.score.toFixed(1)}{' '}
-                      <Badge bg='info' className='ms-1 text-capitalize'>
+                      <Badge bg={riskBadgeVariant} className='ms-1 text-capitalize'>
                         {riskScore.risk_level ?? 'unknown'}
                       </Badge>
                     </>
@@ -395,8 +415,61 @@ function ClaimPreview() {
                     <span className='text-muted'>{riskError ?? 'Not available'}</span>
                   )}
                 </div>
+                {riskScore?.auto_approve ? (
+                  <div className='mb-2'>
+                    <strong>Decision Path:</strong>{' '}
+                    <Badge bg='success' className='ms-1'>
+                      Auto Approved
+                    </Badge>
+                  </div>
+                ) : null}
+                {riskScore?.manual_review_required ? (
+                  <div className='mb-2'>
+                    <strong>Review Status:</strong>{' '}
+                    <Badge bg='danger' className='ms-1'>
+                      Manual Review Required
+                    </Badge>
+                  </div>
+                ) : null}
               </Col>
             </Row>
+
+            <h6 className='mb-3'>Fraud Rule Summary</h6>
+            {riskLoading ? (
+              <div className='text-muted mb-4'>Loading fraud rule details...</div>
+            ) : riskError ? (
+              <Alert variant='warning'>{riskError}</Alert>
+            ) : ruleFlags.length === 0 ? (
+              <Alert variant='light'>No fraud rules were triggered for this claim.</Alert>
+            ) : (
+              <div className='mb-4'>
+                {ruleFlags.map((flag, index) => {
+                  const severity = (flag.severity ?? '').toLowerCase()
+                  const variant =
+                    severity === 'high'
+                      ? 'danger'
+                      : severity === 'medium'
+                        ? 'warning'
+                        : severity === 'info'
+                          ? 'success'
+                          : 'secondary'
+
+                  return (
+                    <Alert key={`${flag.code ?? 'flag'}-${index}`} variant={variant}>
+                      <div className='d-flex justify-content-between align-items-start gap-3'>
+                        <div>
+                          <strong>{flag.code ?? 'rule_flag'}</strong>
+                          <div>{flag.message ?? 'Rule triggered.'}</div>
+                        </div>
+                        <Badge bg={variant} className='text-capitalize'>
+                          {flag.severity ?? 'unknown'}
+                        </Badge>
+                      </div>
+                    </Alert>
+                  )
+                })}
+              </div>
+            )}
 
             <h6 className='mb-3'>Claim Lines (Preview Only)</h6>
             <Table hover responsive>

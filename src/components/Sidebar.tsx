@@ -36,7 +36,7 @@ function Sidebar() {
         <div className='sidebar-content'>
           <ul className='nav nav-secondary'>
             <li className='nav-item'>
-              <NavLink to='/'>
+              <NavLink to='/dashboard'>
                 <i className='fas fa-home'></i>
                 <p>Dashboard</p>
               </NavLink>

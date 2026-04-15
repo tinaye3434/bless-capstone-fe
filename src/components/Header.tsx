@@ -25,7 +25,7 @@ function Header() {
       <div className='main-header-logo'>
         {/* Logo Header */}
         <div className='logo-header' data-background-color='dark'>
-          <a href='/' className='logo'>
+          <a href='/dashboard' className='logo'>
             <img
               src='/assets/img/kaiadmin/logo_light.svg'
               alt='navbar brand'

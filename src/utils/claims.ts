@@ -1,8 +1,12 @@
+import axios from 'axios'
+
 export type ClaimApi = {
   id: number
   employee?: string
   employee_id?: number | string
   purpose?: string
+  departure_date?: string
+  return_date?: string
   origin?: string
   destination?: string
   days?: number
@@ -16,6 +20,7 @@ export type ClaimApi = {
 
 export type Employee = {
   id: number | string
+  user_id?: number | string
   first_name?: string
   surname?: string
   name?: string
@@ -36,6 +41,7 @@ export type LocationPoint = {
 
 export type ClaimRow = {
   id: number
+  employee_id: string
   employee: string
   purpose: string
   origin: string
@@ -51,6 +57,7 @@ export const CLAIMS_ENDPOINT = '/api/claims/'
 export const EMPLOYEES_ENDPOINT = '/api/employee/'
 export const APPROVAL_STAGES_ENDPOINT = '/api/approval-stages/'
 export const LOCATIONS_ENDPOINT = '/api/locations/'
+const TABLE_REQUEST_TIMEOUT_MS = 15000
 
 export const normalizeEmployeesResponse = (payload: unknown): Employee[] => {
   if (Array.isArray(payload)) {
@@ -195,6 +202,7 @@ export const mapClaimRow = (
 
   return {
     id: Number(claim.id),
+    employee_id: employeeId,
     employee: employeeName,
     purpose: claim.purpose ?? '',
     origin: claim.origin ?? '',
@@ -204,5 +212,45 @@ export const mapClaimRow = (
     total_allowances: Number(claim.total_allowances ?? claim.total ?? 0),
     status: statusLabel,
     documents_submitted: Boolean(claim.documents_submitted),
+  }
+}
+
+export type ClaimsTableData = {
+  claims: ClaimApi[]
+  employees: Employee[]
+  finalStageId: number | null
+  employeeMap: Map<string, string>
+}
+
+export const loadClaimsTableData = async (): Promise<ClaimsTableData> => {
+  const [claimsResult, employeesResult, stagesResult] = await Promise.allSettled([
+    axios.get(CLAIMS_ENDPOINT, { timeout: TABLE_REQUEST_TIMEOUT_MS }),
+    axios.get(EMPLOYEES_ENDPOINT, { timeout: TABLE_REQUEST_TIMEOUT_MS }),
+    axios.get(APPROVAL_STAGES_ENDPOINT, { timeout: TABLE_REQUEST_TIMEOUT_MS }),
+  ])
+
+  if (claimsResult.status !== 'fulfilled') {
+    throw claimsResult.reason
+  }
+
+  const claims = normalizeClaimsResponse(claimsResult.value.data)
+  const employees =
+    employeesResult.status === 'fulfilled'
+      ? normalizeEmployeesResponse(employeesResult.value.data)
+      : []
+  const stages =
+    stagesResult.status === 'fulfilled'
+      ? normalizeStagesResponse(stagesResult.value.data)
+      : []
+  const finalStageId = getFinalStageId(stages)
+  const employeeMap = new Map(
+    employees.map((employee) => [String(employee.id), getEmployeeLabel(employee)]),
+  )
+
+  return {
+    claims,
+    employees,
+    finalStageId,
+    employeeMap,
   }
 }

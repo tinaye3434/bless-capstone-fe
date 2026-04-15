@@ -20,6 +20,8 @@ import FraudTraining from './pages/FraudTraining'
 import AllClaims from './pages/AllClaims'
 import PendingClaims from './pages/PendingClaims'
 import Profile from './pages/Profile'
+import LandingPage from './pages/LandingPage'
+import Signup from './pages/Signup'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import { getToken } from './utils/auth'
 
@@ -31,11 +33,42 @@ function RequireAuth({ children }: { children: ReactElement }) {
   return children
 }
 
+function PublicOnly({ children }: { children: ReactElement }) {
+  const token = getToken()
+  if (token) {
+    return <Navigate to='/dashboard' replace />
+  }
+  return children
+}
+
 function App() {
   const router = createBrowserRouter(
     createRoutesFromElements(
       <>
-        <Route path='/login' element={<Login />} />
+        <Route
+          path='/'
+          element={
+            <PublicOnly>
+              <LandingPage />
+            </PublicOnly>
+          }
+        />
+        <Route
+          path='/login'
+          element={
+            <PublicOnly>
+              <Login />
+            </PublicOnly>
+          }
+        />
+        <Route
+          path='/signup'
+          element={
+            <PublicOnly>
+              <Signup />
+            </PublicOnly>
+          }
+        />
         <Route
           path='/'
           element={
@@ -44,7 +77,7 @@ function App() {
             </RequireAuth>
           }
         >
-          <Route index element={<Dashboard />} />
+          <Route path='/dashboard' element={<Dashboard />} />
           <Route path='/all-claims' element={<AllClaims />} />
           <Route path='/pending-claims' element={<PendingClaims />} />
           <Route path='/my-claims' element={<MyClaims />} />

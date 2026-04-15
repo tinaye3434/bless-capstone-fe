@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Alert, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap'
 import { useNavigate, useParams } from 'react-router-dom'
+import { getDisplayName, getUser } from '../utils/auth'
 
 type ClaimForm = {
   employee: string
@@ -29,6 +30,7 @@ type AllowanceOption = {
 
 type Employee = {
   id: number | string
+  user_id?: number | string
   first_name?: string
   surname?: string
   name?: string
@@ -61,6 +63,7 @@ const CITIES_ENDPOINT = '/api/cities/'
 const ALLOWANCES_ENDPOINT = '/api/allowances/'
 const CLAIMS_ENDPOINT = '/api/claims/'
 const CLAIM_LINES_ENDPOINT = '/api/claim-lines/'
+const FORM_REQUEST_TIMEOUT_MS = 15000
 
 const initialClaimForm: ClaimForm = {
   employee: '',
@@ -148,15 +151,6 @@ const normalizeCitiesResponse = (payload: unknown): string[] => {
   }
 
   return []
-}
-
-const getEmployeeLabel = (employee: Employee): string => {
-  const fullName =
-    employee.full_name?.trim() ||
-    employee.name?.trim() ||
-    `${employee.first_name ?? ''} ${employee.surname ?? ''}`.trim()
-
-  return fullName || `Employee ${employee.id}`
 }
 
 const normalizeAllowancesResponse = (payload: unknown): AllowanceOption[] => {
@@ -273,9 +267,11 @@ function CreateClaim() {
   const navigate = useNavigate()
   const { id: claimId } = useParams()
   const isEditing = Boolean(claimId)
+  const currentUser = getUser()
+  const currentUserId = String(currentUser?.id ?? '')
   const [formData, setFormData] = useState<ClaimForm>(initialClaimForm)
   const [allowances, setAllowances] = useState<AllowanceRow[]>([createAllowanceRow(1)])
-  const [employees, setEmployees] = useState<Employee[]>([])
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<string>('')
   const [locations, setLocations] = useState<string[]>([])
   const [allowanceOptions, setAllowanceOptions] = useState<AllowanceOption[]>([])
   const [nextAllowanceId, setNextAllowanceId] = useState(2)
@@ -296,15 +292,30 @@ function CreateClaim() {
       setLoadError(null)
 
       try {
-        const [allowancesResponse, employeesResponse, citiesResponse] = await Promise.all([
-          axios.get(ALLOWANCES_ENDPOINT),
-          axios.get(EMPLOYEES_ENDPOINT),
-          axios.get(CITIES_ENDPOINT),
+        const [allowancesResult, employeesResult, citiesResult] = await Promise.allSettled([
+          axios.get(ALLOWANCES_ENDPOINT, { timeout: FORM_REQUEST_TIMEOUT_MS }),
+          axios.get(EMPLOYEES_ENDPOINT, { timeout: FORM_REQUEST_TIMEOUT_MS }),
+          axios.get(CITIES_ENDPOINT, { timeout: FORM_REQUEST_TIMEOUT_MS }),
         ])
 
-        setAllowanceOptions(normalizeAllowancesResponse(allowancesResponse.data))
-        setEmployees(normalizeEmployeesResponse(employeesResponse.data))
-        setLocations(normalizeCitiesResponse(citiesResponse.data))
+        if (allowancesResult.status !== 'fulfilled') {
+          throw allowancesResult.reason
+        }
+
+        setAllowanceOptions(normalizeAllowancesResponse(allowancesResult.value.data))
+
+        const normalizedEmployees =
+          employeesResult.status === 'fulfilled'
+            ? normalizeEmployeesResponse(employeesResult.value.data)
+            : []
+        const matchedEmployee = normalizedEmployees.find(
+          (employee) => String(employee.user_id ?? '') === currentUserId,
+        )
+        setCurrentEmployeeId(matchedEmployee ? String(matchedEmployee.id) : '')
+
+        const normalizedCities =
+          citiesResult.status === 'fulfilled' ? normalizeCitiesResponse(citiesResult.value.data) : []
+        setLocations(normalizedCities)
       } catch (error) {
         setLoadError('Failed to load employees, cities, and allowances.')
         console.error(error)
@@ -314,7 +325,7 @@ function CreateClaim() {
     }
 
     void fetchOptions()
-  }, [])
+  }, [currentUserId])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -549,6 +560,12 @@ function CreateClaim() {
     setSubmitError(null)
     setSubmitSuccess(null)
 
+    if (!isEditing && !currentEmployeeId) {
+      setSubmitError('Your employee profile could not be resolved from the current account.')
+      setSavingClaim(false)
+      return
+    }
+
     const parseId = (value: string) => {
       const numeric = Number(value)
       return Number.isNaN(numeric) ? value : numeric
@@ -563,7 +580,6 @@ function CreateClaim() {
       }))
 
     const payload = {
-      employee_id: parseId(formData.employee),
       purpose: formData.purpose.trim(),
       departure_date: formData.departure_date,
       return_date: formData.return_date,
@@ -574,6 +590,7 @@ function CreateClaim() {
       total_allowances: allowancesTotal,
       allowances: allowancePayload,
       auto_distance: true,
+      ...(isEditing ? { employee_id: parseId(formData.employee) } : {}),
     }
 
     try {
@@ -618,23 +635,15 @@ function CreateClaim() {
             ) : null}
             <Form onSubmit={handleSubmit}>
               <Row className='mb-3'>
-                <Form.Group as={Col} md={12} controlId='claimEmployee'>
-                  <Form.Label>Employee</Form.Label>
-                  <Form.Select
-                    name='employee'
-                    value={formData.employee}
-                    onChange={handleInputChange}
-                    disabled={loadingOptions}
-                    required
-                  >
-                    <option value=''>Choose employee...</option>
-                    {employees.map((employee) => (
-                      <option key={employee.id} value={String(employee.id)}>
-                        {getEmployeeLabel(employee)}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
+                <Col md={12}>
+                  <div className='p-3 rounded border bg-light-subtle'>
+                    <div className='text-muted small mb-1'>Claim Owner</div>
+                    <strong>{getDisplayName(currentUser)}</strong>
+                    <div className='text-muted small'>
+                      This claim will be created under your logged-in employee account.
+                    </div>
+                  </div>
+                </Col>
               </Row>
 
               <Row className='mb-3'>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { Alert, Button, Card, Form, Spinner } from 'react-bootstrap'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { setAuth, type AuthPayload } from '../utils/auth'
 
 const LOGIN_ENDPOINT = '/api/auth/login/'
@@ -26,7 +26,7 @@ function Login() {
       const payload = response.data as AuthPayload
       setAuth(payload)
       axios.defaults.headers.common.Authorization = `Token ${payload.token}`
-      navigate('/')
+      navigate('/dashboard')
     } catch (err) {
       setError('Invalid username or password.')
       console.error(err)
@@ -36,8 +36,8 @@ function Login() {
   }
 
   return (
-    <div className='d-flex justify-content-center align-items-center' style={{ minHeight: '70vh' }}>
-      <Card style={{ width: 420 }}>
+    <div className='auth-shell'>
+      <Card className='auth-card'>
         <Card.Body>
           <h5 className='mb-3'>Sign In</h5>
           {error ? <Alert variant='danger'>{error}</Alert> : null}
@@ -74,6 +74,9 @@ function Login() {
               )}
             </Button>
           </Form>
+          <div className='text-center text-muted mt-3'>
+            Need an account? <Link to='/signup'>Sign up</Link>
+          </div>
         </Card.Body>
       </Card>
     </div>
