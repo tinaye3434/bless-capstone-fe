@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Button, Modal, Table, Row, Form, Col, Alert, Spinner } from 'react-bootstrap'
+import AppSelect, { type AppSelectOption } from '../components/AppSelect'
 
 type EnumValue = string | number
-type EnumField = 'department' | 'position' | 'grade' | 'gender' | 'status'
+type EnumField = 'department' | 'position' | 'grade' | 'grade_range' | 'gender' | 'status'
 
 type EnumOption = {
   value: EnumValue
@@ -21,6 +22,7 @@ type Employee = {
   department: EnumValue
   position: EnumValue
   grade: EnumValue
+  grade_range: EnumValue | null
   gender: EnumValue
   status: EnumValue
 }
@@ -44,6 +46,7 @@ const initialEnums: EmployeeEnums = {
   department: [],
   position: [],
   grade: [],
+  grade_range: [],
   gender: [],
   status: [],
 }
@@ -96,6 +99,46 @@ function Employees() {
   const [error, setError] = useState<string | null>(null)
 
   const isEditing = useMemo(() => editingEmployeeId !== null, [editingEmployeeId])
+  const departmentOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.department.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.department],
+  )
+  const positionOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.position.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.position],
+  )
+  const gradeOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.grade.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.grade],
+  )
+  const genderOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.gender.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.gender],
+  )
+  const statusOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.status.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.status],
+  )
 
   const fetchEmployees = async () => {
     setLoading(true)
@@ -120,6 +163,7 @@ function Employees() {
         department: Array.isArray(data.department) ? data.department : [],
         position: Array.isArray(data.position) ? data.position : [],
         grade: Array.isArray(data.grade) ? data.grade : [],
+        grade_range: Array.isArray(data.grade_range) ? data.grade_range : [],
         gender: Array.isArray(data.gender) ? data.gender : [],
         status: Array.isArray(data.status) ? data.status : [],
       })
@@ -171,10 +215,27 @@ function Employees() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleSelectChange = (
+    field: keyof Pick<EmployeeForm, 'department' | 'position' | 'grade' | 'gender' | 'status'>,
+    value: string,
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
     setError(null)
+    if (!formData.department || !formData.position || !formData.grade || !formData.gender) {
+      setError('Please complete all employee selection fields.')
+      setSaving(false)
+      return
+    }
+    if (isEditing && !formData.status) {
+      setError('Please choose a status.')
+      setSaving(false)
+      return
+    }
     try {
       const getPayloadEnumValue = (field: EnumField, selectedValue: string): EnumValue => {
         const matchedOption = enums[field].find((option) => String(option.value) === selectedValue)
@@ -236,6 +297,7 @@ function Employees() {
                 <th>#</th>
                 <th>Full Name</th>
                 <th>Department</th>
+                <th>Grade Range</th>
                 <th>Gender</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -244,14 +306,14 @@ function Employees() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className='text-center py-4'>
+                  <td colSpan={7} className='text-center py-4'>
                     <Spinner animation='border' size='sm' className='me-2' />
                     Loading employees...
                   </td>
                 </tr>
               ) : employees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className='text-center py-4'>
+                  <td colSpan={7} className='text-center py-4'>
                     No employees found.
                   </td>
                 </tr>
@@ -261,6 +323,11 @@ function Employees() {
                     <td>{index + 1}</td>
                     <td>{`${employee.first_name} ${employee.surname}`}</td>
                     <td>{getEnumLabel('department', employee.department)}</td>
+                    <td>
+                      {employee.grade_range
+                        ? getEnumLabel('grade_range', employee.grade_range)
+                        : 'Not set'}
+                    </td>
                     <td>{getEnumLabel('gender', employee.gender)}</td>
                     <td>{getEnumLabel('status', employee.status)}</td>
                     <td>
@@ -334,96 +401,66 @@ function Employees() {
             <Row className='mb-3'>
               <Form.Group as={Col} controlId='formGridCity'>
                 <Form.Label>Department</Form.Label>
-                <Form.Select
-                  name='department'
+                <AppSelect
+                  inputId='formGridCity'
                   value={formData.department}
-                  onChange={handleInputChange}
-                  required
-                  disabled={loadingEnums}
-                >
-                  <option value=''>Choose...</option>
-                  {enums.department.map((option) => (
-                    <option key={String(option.value)} value={String(option.value)}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Form.Select>
+                  options={departmentOptions}
+                  onChange={(value) => handleSelectChange('department', value)}
+                  isDisabled={loadingEnums}
+                  placeholder='Choose...'
+                />
               </Form.Group>
 
               <Form.Group as={Col} controlId='formGridPosition'>
                 <Form.Label>Position</Form.Label>
-                <Form.Select
-                  name='position'
+                <AppSelect
+                  inputId='formGridPosition'
                   value={formData.position}
-                  onChange={handleInputChange}
-                  required
-                  disabled={loadingEnums}
-                >
-                  <option value=''>Choose...</option>
-                  {enums.position.map((option) => (
-                    <option key={String(option.value)} value={String(option.value)}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Form.Select>
+                  options={positionOptions}
+                  onChange={(value) => handleSelectChange('position', value)}
+                  isDisabled={loadingEnums}
+                  placeholder='Choose...'
+                />
               </Form.Group>
             </Row>
 
             <Row className='mb-3'>
               <Form.Group as={Col} controlId='formGridState'>
                 <Form.Label>Grade</Form.Label>
-                <Form.Select
-                  name='grade'
+                <AppSelect
+                  inputId='formGridState'
                   value={formData.grade}
-                  onChange={handleInputChange}
-                  required
-                  disabled={loadingEnums}
-                >
-                  <option value=''>Choose...</option>
-                  {enums.grade.map((option) => (
-                    <option key={String(option.value)} value={String(option.value)}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Form.Select>
+                  options={gradeOptions}
+                  onChange={(value) => handleSelectChange('grade', value)}
+                  isDisabled={loadingEnums}
+                  placeholder='Choose...'
+                />
               </Form.Group>
 
               <Form.Group as={Col} controlId='formGridGender'>
                 <Form.Label>Gender</Form.Label>
-                <Form.Select
-                  name='gender'
+                <AppSelect
+                  inputId='formGridGender'
                   value={formData.gender}
-                  onChange={handleInputChange}
-                  required
-                  disabled={loadingEnums}
-                >
-                  <option value=''>Choose...</option>
-                  {enums.gender.map((option) => (
-                    <option key={String(option.value)} value={String(option.value)}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Form.Select>
+                  options={genderOptions}
+                  onChange={(value) => handleSelectChange('gender', value)}
+                  isDisabled={loadingEnums}
+                  placeholder='Choose...'
+                />
               </Form.Group>
             </Row>
             {isEditing ? (
               <Row className='mb-3'>
                 <Form.Group as={Col} controlId='formGridStatus'>
                   <Form.Label>Status</Form.Label>
-                  <Form.Select
-                    name='status'
+                  <AppSelect
+                    inputId='formGridStatus'
                     value={formData.status}
-                    onChange={handleInputChange}
-                    required
-                    disabled={loadingEnums}
-                  >
-                    <option value=''>Choose...</option>
-                    {enums.status.map((option) => (
-                      <option key={String(option.value)} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Form.Select>
+                    options={statusOptions}
+                    onChange={(value) => handleSelectChange('status', value)}
+                    isDisabled={loadingEnums}
+                    placeholder='Choose...'
+                  />
                 </Form.Group>
               </Row>
             ) : null}

@@ -7,6 +7,7 @@ import { isAdmin } from '../utils/auth'
 import Alert from 'react-bootstrap/Alert'
 import Users from './Users'
 import Thresholds from './Thresholds'
+import Cities from './Cities'
 
 function Settings() {
   const showAdminTabs = isAdmin()
@@ -32,6 +33,9 @@ function Settings() {
                 </Tab>
                 <Tab eventKey='allowances' title='Allowances'>
                   <Allowances />
+                </Tab>
+                <Tab eventKey='cities' title='Cities'>
+                  <Cities />
                 </Tab>
                 <Tab eventKey='approval-stages' title='Approval Stages'>
                   <ApprovalStages />

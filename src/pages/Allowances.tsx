@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Table, Button, Modal, Form, Row, Col, Alert, Spinner } from 'react-bootstrap'
+import AppSelect, { type AppSelectOption } from '../components/AppSelect'
 
 type EnumValue = string | number
 
@@ -12,17 +13,23 @@ type EnumOption = {
 type Allowance = {
   id: number
   title: string
+  nature: EnumValue | null
+  grade_range: EnumValue | null
   cost: number
   status: EnumValue
 }
 
 type AllowanceForm = {
   title: string
+  nature: string
+  grade_range: string
   cost: string
   status: string
 }
 
 type AllowanceEnums = {
+  allowance_nature: EnumOption[]
+  grade_range: EnumOption[]
   status: EnumOption[]
 }
 
@@ -31,11 +38,15 @@ const ENUMS_ENDPOINT = '/api/enums/'
 
 const initialFormData: AllowanceForm = {
   title: '',
+  nature: '',
+  grade_range: '',
   cost: '',
   status: '',
 }
 
 const initialEnums: AllowanceEnums = {
+  allowance_nature: [],
+  grade_range: [],
   status: [],
 }
 
@@ -75,6 +86,30 @@ function Allowances() {
   const [error, setError] = useState<string | null>(null)
 
   const isEditing = useMemo(() => editingAllowanceId !== null, [editingAllowanceId])
+  const natureOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.allowance_nature.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.allowance_nature],
+  )
+  const gradeRangeOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.grade_range.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.grade_range],
+  )
+  const statusOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.status.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.status],
+  )
 
   const fetchAllowances = async () => {
     setLoading(true)
@@ -96,6 +131,8 @@ function Allowances() {
       const response = await axios.get<Record<string, EnumOption[]>>(ENUMS_ENDPOINT)
       const data = response.data ?? {}
       setEnums({
+        allowance_nature: Array.isArray(data.allowance_nature) ? data.allowance_nature : [],
+        grade_range: Array.isArray(data.grade_range) ? data.grade_range : [],
         status: Array.isArray(data.status) ? data.status : [],
       })
     } catch (err) {
@@ -115,8 +152,40 @@ function Allowances() {
     return matched ? matched.label : String(value ?? '')
   }
 
+  const getNatureLabel = (value: EnumValue | null) => {
+    if (value === null || value === undefined || value === '') {
+      return 'Not set'
+    }
+    const matched = enums.allowance_nature.find((option) => String(option.value) === String(value))
+    return matched ? matched.label : String(value)
+  }
+
+  const getGradeRangeLabel = (value: EnumValue | null) => {
+    if (value === null || value === undefined || value === '') {
+      return 'Not set'
+    }
+    const matched = enums.grade_range.find((option) => String(option.value) === String(value))
+    return matched ? matched.label : String(value)
+  }
+
   const getPayloadStatus = (selectedValue: string): EnumValue => {
     const matched = enums.status.find((option) => String(option.value) === selectedValue)
+    return matched ? matched.value : selectedValue
+  }
+
+  const getPayloadNature = (selectedValue: string): EnumValue | null => {
+    if (!selectedValue) {
+      return null
+    }
+    const matched = enums.allowance_nature.find((option) => String(option.value) === selectedValue)
+    return matched ? matched.value : selectedValue
+  }
+
+  const getPayloadGradeRange = (selectedValue: string): EnumValue | null => {
+    if (!selectedValue) {
+      return null
+    }
+    const matched = enums.grade_range.find((option) => String(option.value) === selectedValue)
     return matched ? matched.value : selectedValue
   }
 
@@ -138,6 +207,8 @@ function Allowances() {
   const handleShowEdit = (allowance: Allowance) => {
     setFormData({
       title: allowance.title,
+      nature: String(allowance.nature ?? ''),
+      grade_range: String(allowance.grade_range ?? ''),
       cost: String(allowance.cost ?? ''),
       status: String(allowance.status ?? ''),
     })
@@ -150,13 +221,24 @@ function Allowances() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleSelectChange = (field: keyof Pick<AllowanceForm, 'nature' | 'grade_range' | 'status'>, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
     setError(null)
+    if (isEditing && !formData.status) {
+      setError('Please choose a status.')
+      setSaving(false)
+      return
+    }
     try {
       const basePayload = {
         title: formData.title.trim(),
+        nature: getPayloadNature(formData.nature),
+        grade_range: getPayloadGradeRange(formData.grade_range),
         cost: Number(formData.cost),
       }
 
@@ -202,6 +284,8 @@ function Allowances() {
               <tr>
                 <th>#</th>
                 <th>Title</th>
+                <th>Nature</th>
+                <th>Grade Range</th>
                 <th>Cost</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -210,14 +294,14 @@ function Allowances() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className='text-center py-4'>
+                  <td colSpan={7} className='text-center py-4'>
                     <Spinner animation='border' size='sm' className='me-2' />
                     Loading allowances...
                   </td>
                 </tr>
               ) : allowances.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className='text-center py-4'>
+                  <td colSpan={7} className='text-center py-4'>
                     No allowances found.
                   </td>
                 </tr>
@@ -226,6 +310,8 @@ function Allowances() {
                   <tr key={allowance.id}>
                     <td>{index + 1}</td>
                     <td>{allowance.title}</td>
+                    <td>{getNatureLabel(allowance.nature)}</td>
+                    <td>{getGradeRangeLabel(allowance.grade_range)}</td>
                     <td>{allowance.cost}</td>
                     <td>{getStatusLabel(allowance.status)}</td>
                     <td>
@@ -278,24 +364,48 @@ function Allowances() {
               </Form.Group>
             </Row>
 
+            <Row className='mb-3'>
+              <Form.Group as={Col} controlId='allowanceNature'>
+                <Form.Label>Nature</Form.Label>
+                <AppSelect
+                  inputId='allowanceNature'
+                  value={formData.nature}
+                  options={natureOptions}
+                  onChange={(value) => handleSelectChange('nature', value)}
+                  isDisabled={loadingEnums}
+                  isClearable
+                  placeholder='Not set'
+                />
+              </Form.Group>
+            </Row>
+
+            <Row className='mb-3'>
+              <Form.Group as={Col} controlId='allowanceGradeRange'>
+                <Form.Label>Grade Range</Form.Label>
+                <AppSelect
+                  inputId='allowanceGradeRange'
+                  value={formData.grade_range}
+                  options={gradeRangeOptions}
+                  onChange={(value) => handleSelectChange('grade_range', value)}
+                  isDisabled={loadingEnums}
+                  isClearable
+                  placeholder='Not set'
+                />
+              </Form.Group>
+            </Row>
+
             {isEditing ? (
               <Row className='mb-3'>
                 <Form.Group as={Col} controlId='allowanceStatus'>
                   <Form.Label>Status</Form.Label>
-                  <Form.Select
-                    name='status'
+                  <AppSelect
+                    inputId='allowanceStatus'
                     value={formData.status}
-                    onChange={handleInputChange}
-                    required
-                    disabled={loadingEnums}
-                  >
-                    <option value=''>Choose...</option>
-                    {enums.status.map((option) => (
-                      <option key={String(option.value)} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Form.Select>
+                    options={statusOptions}
+                    onChange={(value) => handleSelectChange('status', value)}
+                    isDisabled={loadingEnums}
+                    placeholder='Choose...'
+                  />
                 </Form.Group>
               </Row>
             ) : null}

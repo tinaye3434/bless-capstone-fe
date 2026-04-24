@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Alert, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap'
 import { Link, useNavigate } from 'react-router-dom'
+import AppSelect, { type AppSelectOption } from '../components/AppSelect'
 import { setAuth, type AuthPayload } from '../utils/auth'
 
 type EnumValue = string | number
@@ -57,6 +58,38 @@ function Signup() {
   const [loadingEnums, setLoadingEnums] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const departmentOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.department.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.department],
+  )
+  const positionOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.position.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.position],
+  )
+  const gradeOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.grade.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.grade],
+  )
+  const genderOptions = useMemo<AppSelectOption[]>(
+    () =>
+      enums.gender.map((option) => ({
+        value: String(option.value),
+        label: option.label,
+      })),
+    [enums.gender],
+  )
 
   useEffect(() => {
     const fetchEnums = async () => {
@@ -86,12 +119,24 @@ function Signup() {
     setFormData((previous) => ({ ...previous, [name]: value }))
   }
 
+  const handleSelectChange = (
+    field: keyof Pick<SignupForm, 'department' | 'position' | 'grade' | 'gender'>,
+    value: string,
+  ) => {
+    setFormData((previous) => ({ ...previous, [field]: value }))
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
 
     if (formData.password !== formData.confirm_password) {
       setError('Password confirmation does not match.')
+      return
+    }
+
+    if (!formData.department || !formData.position || !formData.grade || !formData.gender) {
+      setError('Please complete all selection fields.')
       return
     }
 
@@ -162,53 +207,53 @@ function Signup() {
               <Col md={6}>
                 <Form.Group controlId='signupDepartment'>
                   <Form.Label>Department</Form.Label>
-                  <Form.Select name='department' value={formData.department} onChange={handleChange} disabled={loadingEnums} required>
-                    <option value=''>Choose...</option>
-                    {enums.department.map((option) => (
-                      <option key={String(option.value)} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Form.Select>
+                  <AppSelect
+                    inputId='signupDepartment'
+                    value={formData.department}
+                    options={departmentOptions}
+                    onChange={(value) => handleSelectChange('department', value)}
+                    isDisabled={loadingEnums}
+                    placeholder='Choose...'
+                  />
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group controlId='signupPosition'>
                   <Form.Label>Position</Form.Label>
-                  <Form.Select name='position' value={formData.position} onChange={handleChange} disabled={loadingEnums} required>
-                    <option value=''>Choose...</option>
-                    {enums.position.map((option) => (
-                      <option key={String(option.value)} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Form.Select>
+                  <AppSelect
+                    inputId='signupPosition'
+                    value={formData.position}
+                    options={positionOptions}
+                    onChange={(value) => handleSelectChange('position', value)}
+                    isDisabled={loadingEnums}
+                    placeholder='Choose...'
+                  />
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group controlId='signupGrade'>
                   <Form.Label>Grade</Form.Label>
-                  <Form.Select name='grade' value={formData.grade} onChange={handleChange} disabled={loadingEnums} required>
-                    <option value=''>Choose...</option>
-                    {enums.grade.map((option) => (
-                      <option key={String(option.value)} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Form.Select>
+                  <AppSelect
+                    inputId='signupGrade'
+                    value={formData.grade}
+                    options={gradeOptions}
+                    onChange={(value) => handleSelectChange('grade', value)}
+                    isDisabled={loadingEnums}
+                    placeholder='Choose...'
+                  />
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group controlId='signupGender'>
                   <Form.Label>Gender</Form.Label>
-                  <Form.Select name='gender' value={formData.gender} onChange={handleChange} disabled={loadingEnums} required>
-                    <option value=''>Choose...</option>
-                    {enums.gender.map((option) => (
-                      <option key={String(option.value)} value={String(option.value)}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Form.Select>
+                  <AppSelect
+                    inputId='signupGender'
+                    value={formData.gender}
+                    options={genderOptions}
+                    onChange={(value) => handleSelectChange('gender', value)}
+                    isDisabled={loadingEnums}
+                    placeholder='Choose...'
+                  />
                 </Form.Group>
               </Col>
               <Col md={6}>

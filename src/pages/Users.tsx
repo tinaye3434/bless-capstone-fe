@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap'
+import AppSelect from '../components/AppSelect'
 import { getUser, updateStoredUser } from '../utils/auth'
 
 type User = {
@@ -138,20 +139,14 @@ function Users() {
                   <td>{user.username}</td>
                   <td>{user.email || '-'}</td>
                   <td style={{ minWidth: 220 }}>
-                    <Form.Select
-                      size='sm'
+                    <AppSelect
+                      inputId={`userRole${user.id}`}
                       value={user.role || 'EMPLOYEE'}
-                      onChange={(event) =>
-                        void handleRoleChange(String(user.id), event.target.value)
-                      }
-                      disabled={updatingRoleId === String(user.id)}
-                    >
-                      {ROLE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Form.Select>
+                      options={ROLE_OPTIONS}
+                      onChange={(value) => void handleRoleChange(String(user.id), value)}
+                      isDisabled={updatingRoleId === String(user.id)}
+                      size='sm'
+                    />
                   </td>
                   <td>{user.is_active ? 'Active' : 'Inactive'}</td>
                   <td>

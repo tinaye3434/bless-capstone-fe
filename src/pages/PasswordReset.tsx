@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Alert, Button, Form, Spinner } from 'react-bootstrap'
+import AppSelect, { type AppSelectOption } from '../components/AppSelect'
 
 type UserOption = {
   id: number | string
@@ -19,6 +20,14 @@ function PasswordReset() {
   const [resetting, setResetting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const userOptions = useMemo<AppSelectOption[]>(
+    () =>
+      users.map((user) => ({
+        value: String(user.id),
+        label: `${user.username}${user.email ? ` (${user.email})` : ''}${user.role ? ` - ${user.role}` : ''}`,
+      })),
+    [users],
+  )
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -78,18 +87,14 @@ function PasswordReset() {
         <Form>
           <Form.Group className='mb-3' controlId='resetUserSelect'>
             <Form.Label>User</Form.Label>
-            <Form.Select
+            <AppSelect
+              inputId='resetUserSelect'
               value={selectedUserId}
-              onChange={(event) => setSelectedUserId(event.target.value)}
-            >
-              <option value=''>Choose user...</option>
-              {users.map((user) => (
-                <option key={String(user.id)} value={String(user.id)}>
-                  {user.username} {user.email ? `(${user.email})` : ''}{' '}
-                  {user.role ? `- ${user.role}` : ''}
-                </option>
-              ))}
-            </Form.Select>
+              options={userOptions}
+              onChange={setSelectedUserId}
+              isClearable
+              placeholder='Choose user...'
+            />
           </Form.Group>
           <Button variant='primary' type='button' onClick={handleReset} disabled={resetting}>
             {resetting ? 'Resetting...' : 'Reset Password'}
