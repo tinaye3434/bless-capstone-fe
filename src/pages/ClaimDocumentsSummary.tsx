@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Alert, Badge, Button, Card, ProgressBar, Spinner, Table } from 'react-bootstrap'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -45,7 +45,7 @@ function ClaimDocumentsSummary() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     if (!claimId) {
       return
     }
@@ -63,7 +63,7 @@ function ClaimDocumentsSummary() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [claimId])
 
   const handleRunOcr = async () => {
     if (!claimId) {
@@ -89,7 +89,7 @@ function ClaimDocumentsSummary() {
 
   useEffect(() => {
     void fetchSummary()
-  }, [claimId])
+  }, [fetchSummary])
 
   const progressPct = useMemo(() => {
     if (!summary || summary.total_receipts === 0) {
@@ -130,7 +130,7 @@ function ClaimDocumentsSummary() {
             {runningOcr ? 'Starting OCR...' : 'Run OCR'}
           </Button>
           <Button variant='outline-secondary' onClick={() => navigate(`/claims/${claimId}/documents`)}>
-            Documents
+            Receipts
           </Button>
           <Button variant='outline-secondary' onClick={() => navigate(-1)}>
             Back

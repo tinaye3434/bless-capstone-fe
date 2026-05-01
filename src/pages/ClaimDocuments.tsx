@@ -9,6 +9,7 @@ type ClaimDetail = {
   purpose?: string
   origin?: string
   destination?: string
+  user_distance?: number | null
   actual_mileage?: number | null
 }
 
@@ -43,12 +44,14 @@ type AllowanceOption = {
   title?: string
   name?: string
   label?: string
+  nature?: string | null
 }
 
 const CLAIMS_ENDPOINT = '/api/claims/'
 const CLAIM_LINES_ENDPOINT = '/api/claim-lines/'
 const RECEIPTS_ENDPOINT = '/api/receipts/'
 const ALLOWANCES_ENDPOINT = '/api/allowances/'
+const RECEIPT_REQUIRED_ALLOWANCE_NATURES = new Set(['FUEL', 'OUT_OF_STATION'])
 
 const normalizeClaimLinesResponse = (payload: unknown): ClaimLine[] => {
   if (Array.isArray(payload)) {
@@ -130,7 +133,7 @@ function ClaimDocuments() {
   const [allowances, setAllowances] = useState<AllowanceOption[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [pendingUploads, setPendingUploads] = useState<Record<string, File[]>>({})
-  const [actualMileage, setActualMileage] = useState<string>('')
+  const [userDistance, setUserDistance] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [uploadingLineId, setUploadingLineId] = useState<string | null>(null)
   const [submittingDocuments, setSubmittingDocuments] = useState(false)
@@ -158,10 +161,10 @@ function ClaimDocuments() {
         setAllowances(normalizeAllowancesResponse(allowancesResponse.data))
         setReceipts(Array.isArray(receiptsResponse.data) ? receiptsResponse.data : [])
         if (claimResponse.data.actual_mileage !== undefined && claimResponse.data.actual_mileage !== null) {
-          setActualMileage(String(claimResponse.data.actual_mileage))
+          setUserDistance(String(claimResponse.data.actual_mileage))
         }
       } catch (err) {
-        setError('Failed to load claim documents.')
+        setError('Failed to load claim receipts.')
         console.error(err)
       } finally {
         setLoading(false)
@@ -174,19 +177,31 @@ function ClaimDocuments() {
   const allowanceMap = useMemo(() => {
     return new Map(allowances.map((allowance) => [String(allowance.id), getAllowanceLabel(allowance)]))
   }, [allowances])
+  const allowanceNatureMap = useMemo(() => {
+    return new Map(
+      allowances.map((allowance) => [String(allowance.id), String(allowance.nature ?? '')]),
+    )
+  }, [allowances])
 
   const lineItems = useMemo(() => {
-    return claimLines.map((line) => {
-      const allowanceName = allowanceMap.get(String(line.allowance_id)) ?? String(line.allowance_id)
-      const lineId = String(line.id ?? '')
-      const lineReceipts = receipts.filter((receipt) => String(receipt.claim_line) === lineId)
-      return {
-        id: line.id ?? `${line.allowance_id}`,
-        allowance: allowanceName,
-        receipts: lineReceipts,
-      }
-    })
-  }, [claimLines, allowanceMap, receipts])
+    return claimLines
+      .filter((line) =>
+        RECEIPT_REQUIRED_ALLOWANCE_NATURES.has(
+          String(allowanceNatureMap.get(String(line.allowance_id ?? '')) ?? ''),
+        ),
+      )
+      .map((line) => {
+        const allowanceName =
+          allowanceMap.get(String(line.allowance_id)) ?? String(line.allowance_id)
+        const lineId = String(line.id ?? '')
+        const lineReceipts = receipts.filter((receipt) => String(receipt.claim_line) === lineId)
+        return {
+          id: line.id ?? `${line.allowance_id}`,
+          allowance: allowanceName,
+          receipts: lineReceipts,
+        }
+      })
+  }, [allowanceMap, allowanceNatureMap, claimLines, receipts])
 
   const renderStatusBadge = (status?: string) => {
     if (!status) {
@@ -224,7 +239,7 @@ function ClaimDocuments() {
     setPendingUploads((prev) => ({ ...prev, [lineId]: selected }))
   }
 
-  const handleSubmitDocuments = async () => {
+  const handleSubmitReceipts = async () => {
     if (!claimId) {
       return
     }
@@ -232,6 +247,13 @@ function ClaimDocuments() {
     setError(null)
     setSuccess(null)
     try {
+      const parsedUserDistance = Number(userDistance)
+      if (!userDistance.trim() || Number.isNaN(parsedUserDistance) || parsedUserDistance <= 0) {
+        setError('Enter the user distance before submitting receipts.')
+        setSubmittingDocuments(false)
+        return
+      }
+
       const lineIds = Object.keys(pendingUploads)
       for (const lineId of lineIds) {
         const files = pendingUploads[lineId]
@@ -253,15 +275,18 @@ function ClaimDocuments() {
       setUploadingLineId(null)
 
       await axios.patch(`${CLAIMS_ENDPOINT}${claimId}/`, {
-        actual_mileage: actualMileage ? Number(actualMileage) : null,
+        user_distance: parsedUserDistance,
+        actual_mileage: parsedUserDistance,
       })
-      const response = await axios.post(`${CLAIMS_ENDPOINT}${claimId}/submit-documents/`)
-      const detail =
-        (response.data && typeof response.data.detail === 'string' && response.data.detail) ||
-        'Document processing started in the background.'
-      setSuccess(detail)
+      await axios.post(`${CLAIMS_ENDPOINT}${claimId}/submit-documents/`)
+      navigate(-1)
     } catch (err) {
-      setError('Failed to submit documents or update mileage.')
+      if (axios.isAxiosError(err)) {
+        const detail = (err.response?.data as { detail?: string } | undefined)?.detail
+        setError(detail || 'Failed to submit receipts or update mileage.')
+      } else {
+        setError('Failed to submit receipts or update mileage.')
+      }
       console.error(err)
     } finally {
       setSubmittingDocuments(false)
@@ -276,7 +301,7 @@ function ClaimDocuments() {
     <div>
       <div className='d-flex justify-content-between align-items-center mb-3'>
         <div>
-          <h5 className='mb-1'>Claim Documents</h5>
+          <h5 className='mb-1'>Claim Receipts</h5>
           <div className='text-muted'>Claim #{claimId}</div>
         </div>
         <Button variant='outline-secondary' onClick={() => navigate(-1)}>
@@ -290,13 +315,13 @@ function ClaimDocuments() {
       <Form
         onSubmit={(event) => {
           event.preventDefault()
-          void handleSubmitDocuments()
+          void handleSubmitReceipts()
         }}
       >
         {loading ? (
           <div className='d-flex align-items-center'>
             <Spinner animation='border' size='sm' className='me-2' />
-            Loading documents...
+            Loading receipts...
           </div>
         ) : (
           <>
@@ -304,15 +329,15 @@ function ClaimDocuments() {
               <Card.Body>
                 <Row className='align-items-end'>
                   <Col md={8}>
-                    <Form.Group controlId='actualMileage'>
-                      <Form.Label>Actual Mileage (km)</Form.Label>
+                    <Form.Group controlId='userDistance'>
+                      <Form.Label>User Distance (km)</Form.Label>
                       <Form.Control
                         type='number'
                         min='0'
                         step='0.1'
-                        value={actualMileage}
-                        onChange={(event) => setActualMileage(event.target.value)}
-                        placeholder='Enter actual mileage after trip completion'
+                        value={userDistance}
+                        onChange={(event) => setUserDistance(event.target.value)}
+                        placeholder='Enter the distance travelled after trip completion'
                       />
                     </Form.Group>
                   </Col>
@@ -322,7 +347,7 @@ function ClaimDocuments() {
 
             <Card className='mb-4'>
               <Card.Body>
-                <h6 className='mb-3'>Receipts per Allowance</h6>
+                <h6 className='mb-3'>Receipts for Fuel and Out of Station</h6>
                 <Table hover responsive>
                   <thead>
                     <tr>
@@ -336,7 +361,7 @@ function ClaimDocuments() {
                     {lineItems.length === 0 ? (
                       <tr>
                         <td colSpan={4} className='text-center py-3'>
-                          No claim lines found.
+                          No fuel or out of station allowances require receipts for this claim.
                         </td>
                       </tr>
                     ) : (
@@ -386,7 +411,7 @@ function ClaimDocuments() {
 
             <div className='d-flex justify-content-end'>
               <Button type='submit' variant='primary' disabled={submittingDocuments || loading}>
-                {submittingDocuments ? 'Submitting...' : 'Submit Documents'}
+                {submittingDocuments ? 'Submitting Receipts...' : 'Submit Receipts'}
               </Button>
             </div>
           </>

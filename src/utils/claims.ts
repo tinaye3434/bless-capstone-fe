@@ -53,6 +53,39 @@ export type ClaimRow = {
   documents_submitted: boolean
 }
 
+export const normalizeClaimStatus = (status?: string): string => {
+  return String(status ?? '').trim().toLowerCase() || 'unknown'
+}
+
+export const formatClaimStatus = (status?: string): string => {
+  const normalized = normalizeClaimStatus(status)
+  if (normalized === 'unknown') {
+    return 'Unknown'
+  }
+
+  return normalized
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+export const getClaimStatusClassName = (status?: string): string => {
+  const normalized = normalizeClaimStatus(status)
+
+  if (normalized === 'approved') {
+    return 'claim-status-pill claim-status-approved'
+  }
+  if (normalized === 'rejected') {
+    return 'claim-status-pill claim-status-rejected'
+  }
+  if (normalized === 'pending') {
+    return 'claim-status-pill claim-status-pending'
+  }
+
+  return 'claim-status-pill claim-status-unknown'
+}
+
 export const CLAIMS_ENDPOINT = '/api/claims/'
 export const EMPLOYEES_ENDPOINT = '/api/employee/'
 export const APPROVAL_STAGES_ENDPOINT = '/api/approval-stages/'

@@ -6,8 +6,10 @@ import {
   APPROVAL_STAGES_ENDPOINT,
   CLAIMS_ENDPOINT,
   EMPLOYEES_ENDPOINT,
+  formatClaimStatus,
   getEmployeeLabel,
   getFinalStageId,
+  getClaimStatusClassName,
   mapClaimRow,
   normalizeClaimsResponse,
   normalizeEmployeesResponse,
@@ -125,7 +127,11 @@ function AllClaims() {
                 <td>{claim.origin} to {claim.destination}</td>
                 <td>{claim.days}</td>
                 <td>{claim.total_allowances.toFixed(2)}</td>
-                <td className='text-capitalize'>{claim.status}</td>
+                <td>
+                  <span className={getClaimStatusClassName(claim.status)}>
+                    {formatClaimStatus(claim.status)}
+                  </span>
+                </td>
                 <td>
                   <Button
                     variant='outline-primary'

@@ -51,7 +51,7 @@ function Sidebar() {
             <li className='nav-item'>
               <NavLink to='/submissions'>
                 <i className='fas fa-clipboard-check'></i>
-                <p>Submissions</p>
+                <p>Receipts</p>
               </NavLink>
             </li>
 

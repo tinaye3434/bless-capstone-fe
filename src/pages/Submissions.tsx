@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap'
 import { useNavigate } from 'react-router-dom'
 import { getUser } from '../utils/auth'
-import { loadClaimsTableData, mapClaimRow, type ClaimRow } from '../utils/claims'
+import {
+  formatClaimStatus,
+  getClaimStatusClassName,
+  loadClaimsTableData,
+  mapClaimRow,
+  type ClaimRow,
+} from '../utils/claims'
 
 function Submissions() {
   const navigate = useNavigate()
@@ -122,7 +128,11 @@ function Submissions() {
                     <td>{claim.nights}</td>
                     <td>{claim.destination}</td>
                     <td>{claim.total_allowances.toFixed(2)}</td>
-                    <td className='text-capitalize'>{claim.status}</td>
+                    <td>
+                      <span className={getClaimStatusClassName(claim.status)}>
+                        {formatClaimStatus(claim.status)}
+                      </span>
+                    </td>
                     <td>
                       <div className='d-flex gap-2'>
                         <Button

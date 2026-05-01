@@ -3,6 +3,8 @@ import { Alert, Button, Form, Spinner, Table } from 'react-bootstrap'
 import { useNavigate } from 'react-router-dom'
 import { getUser } from '../utils/auth'
 import {
+  formatClaimStatus,
+  getClaimStatusClassName,
   loadClaimsTableData,
   mapClaimRow,
   type ClaimRow,
@@ -73,7 +75,6 @@ function MyClaims() {
   }, [search, claims])
 
   const canCreateClaim = useMemo(() => {
-    const currentUserId = String(currentUser?.id ?? '')
     if (!currentUserId) {
       return true
     }
@@ -122,7 +123,7 @@ function MyClaims() {
 
       {!canCreateClaim ? (
         <Alert variant='warning'>
-          Submit documents for your previous pending claim before creating a new one.
+          Submit receipts for your previous pending claim before creating a new one.
         </Alert>
       ) : null}
 
@@ -166,7 +167,11 @@ function MyClaims() {
                     <td>{claim.nights}</td>
                     <td>{claim.destination}</td>
                     <td>{claim.total_allowances.toFixed(2)}</td>
-                    <td className='text-capitalize'>{claim.status}</td>
+                    <td>
+                      <span className={getClaimStatusClassName(claim.status)}>
+                        {formatClaimStatus(claim.status)}
+                      </span>
+                    </td>
                     <td>
                       <div className='d-flex gap-2'>
                         <Button
@@ -176,20 +181,24 @@ function MyClaims() {
                         >
                           View
                         </Button>
-                        <Button
-                          variant='outline-success'
-                          size='sm'
-                          onClick={() => navigate(`/claims/${claim.id}/documents`)}
-                        >
-                          Documents
-                        </Button>
-                        <Button
-                          variant='outline-primary'
-                          size='sm'
-                          onClick={() => navigate(`/claims/${claim.id}/edit`)}
-                        >
-                          Edit
-                        </Button>
+                        {!claim.documents_submitted ? (
+                          <Button
+                            variant='outline-success'
+                            size='sm'
+                            onClick={() => navigate(`/claims/${claim.id}/documents`)}
+                          >
+                            Receipts
+                          </Button>
+                        ) : null}
+                        {claim.status.toLowerCase() !== 'approved' ? (
+                          <Button
+                            variant='outline-primary'
+                            size='sm'
+                            onClick={() => navigate(`/claims/${claim.id}/edit`)}
+                          >
+                            Edit
+                          </Button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

@@ -3,7 +3,7 @@ import axios from 'axios'
 import { Alert, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap'
 import { useNavigate, useParams } from 'react-router-dom'
 import AppSelect, { type AppSelectOption } from '../components/AppSelect'
-import { getDisplayName, getUser } from '../utils/auth'
+import { getDisplayName, getUser, type AuthUser } from '../utils/auth'
 import { normalizeLocationsResponse, type LocationPoint } from '../utils/claims'
 
 type ClaimForm = {
@@ -41,6 +41,7 @@ type Employee = {
   surname?: string
   name?: string
   full_name?: string
+  email?: string
   grade?: number | string
   grade_range?: string | null
 }
@@ -107,14 +108,17 @@ const deriveGradeRange = (grade: number | string | undefined): string | null => 
   if (Number.isNaN(numeric)) {
     return null
   }
-  if (numeric >= 1 && numeric <= 4) {
-    return 'LOWER'
+  if (numeric >= 1 && numeric <= 8) {
+    return 'GENERAL'
   }
-  if (numeric >= 5 && numeric <= 8) {
-    return 'MIDDLE'
+  if (numeric === 9) {
+    return 'MANAGEMENT'
   }
-  if (numeric >= 9 && numeric <= 12) {
-    return 'UPPER'
+  if (numeric === 10) {
+    return 'HODS_AND_COUNCILORS'
+  }
+  if (numeric === 11) {
+    return 'CEO_AND_COUNCIL_CHAIR'
   }
 
   return null
@@ -193,11 +197,11 @@ const pickAllowanceForNature = (
   const activeAllowances = allowances.filter(
     (allowance) => isActiveAllowance(allowance) && String(allowance.nature ?? '') === nature,
   )
+  const findByGradeRange = (value: string) =>
+    activeAllowances.find((allowance) => String(allowance.grade_range ?? '') === value)
 
   if (gradeRange) {
-    const exactMatch = activeAllowances.find(
-      (allowance) => String(allowance.grade_range ?? '') === gradeRange,
-    )
+    const exactMatch = findByGradeRange(gradeRange)
     if (exactMatch) {
       return exactMatch
     }
@@ -206,8 +210,27 @@ const pickAllowanceForNature = (
   const genericMatch = activeAllowances.find(
     (allowance) => allowance.grade_range === null || allowance.grade_range === undefined || allowance.grade_range === '',
   )
+  if (genericMatch) {
+    return genericMatch
+  }
 
-  return genericMatch ?? activeAllowances[0] ?? null
+  const fallbackGradeRanges =
+    gradeRange === 'CEO_AND_COUNCIL_CHAIR'
+      ? ['HODS_AND_COUNCILORS', 'MANAGEMENT', 'GENERAL']
+      : gradeRange === 'HODS_AND_COUNCILORS'
+        ? ['MANAGEMENT', 'GENERAL']
+        : gradeRange === 'MANAGEMENT'
+          ? ['GENERAL']
+          : []
+
+  for (const fallbackGradeRange of fallbackGradeRanges) {
+    const fallbackMatch = findByGradeRange(fallbackGradeRange)
+    if (fallbackMatch) {
+      return fallbackMatch
+    }
+  }
+
+  return gradeRange ? null : activeAllowances[0] ?? null
 }
 
 const normalizeEmployeesResponse = (payload: unknown): Employee[] => {
@@ -344,12 +367,50 @@ const toDateTimeLocal = (value?: string): string => {
   return local.toISOString().slice(0, 16)
 }
 
+const findEmployeeForUser = (
+  employees: Employee[],
+  user: AuthUser | null,
+): Employee | null => {
+  if (!user) {
+    return null
+  }
+
+  const currentUserId = String(user.id ?? '').trim()
+  if (currentUserId) {
+    const matchedByUserId = employees.find(
+      (employee) => String(employee.user_id ?? '').trim() === currentUserId,
+    )
+    if (matchedByUserId) {
+      return matchedByUserId
+    }
+  }
+
+  const identifiers = new Set(
+    [user.email, user.username]
+      .map((value) => String(value ?? '').trim().toLowerCase())
+      .filter((value) => value.length > 0),
+  )
+
+  if (identifiers.size === 0) {
+    return null
+  }
+
+  return (
+    employees.find((employee) => {
+      const employeeEmail = String(employee.email ?? '').trim().toLowerCase()
+      return employeeEmail.length > 0 && identifiers.has(employeeEmail)
+    }) ?? null
+  )
+}
+
 function CreateClaim() {
   const navigate = useNavigate()
   const { id: claimId } = useParams()
   const isEditing = Boolean(claimId)
   const currentUser = getUser()
   const currentUserId = String(currentUser?.id ?? '')
+  const currentUserEmail = String(currentUser?.email ?? '')
+  const currentUsername = String(currentUser?.username ?? '')
   const [formData, setFormData] = useState<ClaimForm>(initialClaimForm)
   const [allowances, setAllowances] = useState<AllowanceRow[]>([createAllowanceRow(1)])
   const [currentEmployeeId, setCurrentEmployeeId] = useState<string>('')
@@ -416,9 +477,11 @@ function CreateClaim() {
           employeesResult.status === 'fulfilled'
             ? normalizeEmployeesResponse(employeesResult.value.data)
             : []
-        const matchedEmployee = normalizedEmployees.find(
-          (employee) => String(employee.user_id ?? '') === currentUserId,
-        )
+        const matchedEmployee = findEmployeeForUser(normalizedEmployees, {
+          id: currentUserId,
+          email: currentUserEmail,
+          username: currentUsername,
+        })
         setCurrentEmployeeId(matchedEmployee ? String(matchedEmployee.id) : '')
         setCurrentEmployeeGradeRange(
           matchedEmployee?.grade_range ?? deriveGradeRange(matchedEmployee?.grade),
@@ -438,7 +501,7 @@ function CreateClaim() {
     }
 
     void fetchOptions()
-  }, [currentUserId])
+  }, [currentUserEmail, currentUserId, currentUsername])
 
   useEffect(() => {
     if (!claimId) {
@@ -497,7 +560,7 @@ function CreateClaim() {
     }
 
     void fetchClaim()
-  }, [claimId])
+  }, [allowanceOptions, claimId])
 
   useEffect(() => {
     if (!isEditing || allowanceOptions.length === 0) {
@@ -572,7 +635,7 @@ function CreateClaim() {
 
     return candidates
       .filter((candidate) => candidate.quantity > 0)
-      .map((candidate, index) => {
+      .map<AllowanceRow | null>((candidate, index) => {
         const matchedAllowance = pickAllowanceForNature(
           allowanceOptions,
           candidate.nature,
@@ -595,7 +658,7 @@ function CreateClaim() {
               ? String(matchedAllowance.cost)
               : '',
           autoGenerated: true,
-        } satisfies AllowanceRow
+        }
       })
       .filter((row): row is AllowanceRow => row !== null)
   }, [
@@ -643,7 +706,7 @@ function CreateClaim() {
         (row) =>
           !row.autoGenerated && (row.allowance || row.quantity || row.amount),
       )
-      const mergedRows = [...autoAllowanceRows, ...manualRows].map((row, index) => ({
+      const mergedRows = [...autoAllowanceRows, ...manualRows].map<AllowanceRow>((row, index) => ({
         ...row,
         id: index + 1,
       }))
@@ -703,12 +766,6 @@ function CreateClaim() {
     setSubmitError(null)
     setSubmitSuccess(null)
 
-    if (!isEditing && !currentEmployeeId) {
-      setSubmitError('Your employee profile could not be resolved from the current account.')
-      setSavingClaim(false)
-      return
-    }
-
     if (!formData.origin || !formData.destination) {
       setSubmitError('Please choose both origin and destination.')
       setSavingClaim(false)
@@ -733,6 +790,7 @@ function CreateClaim() {
         quantity: Number(row.quantity) || 0,
         amount: Number(row.amount) || 0,
       }))
+    const employeeIdForPayload = isEditing ? formData.employee : currentEmployeeId
 
     const payload = {
       purpose: formData.purpose.trim(),
@@ -745,7 +803,7 @@ function CreateClaim() {
       total_allowances: allowancesTotal,
       allowances: allowancePayload,
       auto_distance: true,
-      ...(isEditing ? { employee_id: parseId(formData.employee) } : {}),
+      ...(employeeIdForPayload ? { employee_id: parseId(employeeIdForPayload) } : {}),
     }
 
     try {
@@ -755,9 +813,14 @@ function CreateClaim() {
       console.log('Save claim response:', response.data)
       setSubmitSuccess(isEditing ? 'Claim updated successfully.' : 'Claim submitted successfully.')
       navigate('/my-claims')
-    } catch (error) {
-      setSubmitError(isEditing ? 'Failed to update claim.' : 'Failed to submit claim.')
-      console.error(error)
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const detail = (err.response?.data as { detail?: string } | undefined)?.detail
+        setSubmitError(detail || (isEditing ? 'Failed to update claim.' : 'Failed to submit claim.'))
+      } else {
+        setSubmitError(isEditing ? 'Failed to update claim.' : 'Failed to submit claim.')
+      }
+      console.error(err)
     } finally {
       setSavingClaim(false)
     }

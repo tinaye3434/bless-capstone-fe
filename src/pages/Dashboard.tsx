@@ -175,7 +175,7 @@ function Dashboard() {
               </p>
               {!canCreateClaim ? (
                 <Alert variant='warning' className='mb-3'>
-                  Submit documents for your previous pending claim before creating a new one.
+                  Submit receipts for your previous pending claim before creating a new one.
                 </Alert>
               ) : null}
               <div className='d-flex flex-wrap gap-2'>
