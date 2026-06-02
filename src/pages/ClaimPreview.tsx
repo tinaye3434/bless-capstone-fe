@@ -28,6 +28,13 @@ type ClaimDetail = {
   destination?: string
   user_distance?: number
   calculated_distance?: number
+  driving_distance_km?: number | null
+  estimated_duration_minutes?: number | null
+  ocr_validation_status?: string
+  distance_validation_status?: string
+  validation_status?: string
+  validation_message?: string
+  needs_manual_review?: boolean
   total?: number
   total_allowances?: number
   stage_id?: number | string
@@ -67,6 +74,13 @@ type RiskScore = {
   model_snapshot_id?: number
   auto_approve?: boolean
   manual_review_required?: boolean
+  ocr_validation_status?: string
+  distance_validation_status?: string
+  validation_status?: string
+  validation_message?: string
+  needs_manual_review?: boolean
+  driving_distance_km?: number | null
+  estimated_duration_minutes?: number | null
   rule_flags?: Array<{
     code?: string
     severity?: string
@@ -1029,6 +1043,18 @@ function ClaimPreview() {
                         value={formatDistance(calculatedDistance)}
                       />
                       <DetailRow label='Approval status' value={claimStatusLabel} />
+                      <DetailRow
+                        label='Driving distance'
+                        value={formatDistance(toFiniteNumber(claim.driving_distance_km))}
+                      />
+                      <DetailRow
+                        label='Estimated duration'
+                        value={
+                          toFiniteNumber(claim.estimated_duration_minutes) !== null
+                            ? `${toFiniteNumber(claim.estimated_duration_minutes)?.toFixed(0)} min`
+                            : '-'
+                        }
+                      />
                     </div>
                   </Card.Body>
                 </Card>
@@ -1052,7 +1078,24 @@ function ClaimPreview() {
                         }
                       />
                       <DetailRow label='GPS source' value={gpsValidation?.source || 'Not available'} />
+                      <DetailRow
+                        label='OCR validation'
+                        value={claim.ocr_validation_status || riskScore?.ocr_validation_status || 'Pending'}
+                      />
+                      <DetailRow
+                        label='Distance validation'
+                        value={
+                          claim.distance_validation_status ||
+                          riskScore?.distance_validation_status ||
+                          'Pending'
+                        }
+                      />
                     </div>
+                    {claim.validation_message || riskScore?.validation_message ? (
+                      <Alert variant={claim.needs_manual_review ? 'warning' : 'info'} className='mb-0 mt-3'>
+                        {claim.validation_message || riskScore?.validation_message}
+                      </Alert>
+                    ) : null}
                   </Card.Body>
                 </Card>
               </div>

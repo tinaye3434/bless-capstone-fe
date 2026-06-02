@@ -17,6 +17,12 @@ type Receipt = {
     tax_amount?: number
     receipt_number?: string
     match_status?: string
+    claimed_fee?: number | null
+    ocr_extracted_fee?: number | null
+    percentage_variance?: number | null
+    ocr_validation_status?: string
+    ocr_validation_message?: string
+    needs_manual_review?: boolean
     notes?: string
   } | null
 }
@@ -24,6 +30,16 @@ type Receipt = {
 type SummaryResponse = {
   claim_id: number | string
   documents_submitted: boolean
+  ocr_validation_status?: string
+  distance_validation_status?: string
+  validation_status?: string
+  validation_message?: string
+  needs_manual_review?: boolean
+  claimed_fee?: number
+  origin?: string
+  destination?: string
+  driving_distance_km?: number | null
+  estimated_duration_minutes?: number | null
   total_receipts: number
   processed_receipts: number
   pending_receipts: number
@@ -114,6 +130,25 @@ function ClaimDocumentsSummary() {
     return <Badge bg='secondary'>{status}</Badge>
   }
 
+  const renderOcrValidationBadge = (status?: string) => {
+    if (!status) {
+      return <Badge bg='secondary'>Pending</Badge>
+    }
+    if (status === 'OCR_WITHIN_TOLERANCE') {
+      return <Badge bg='success'>Within Tolerance</Badge>
+    }
+    if (status === 'OCR_TOO_HIGH') {
+      return <Badge bg='danger'>Too High</Badge>
+    }
+    if (status === 'OCR_TOO_LOW') {
+      return <Badge bg='warning' text='dark'>Too Low</Badge>
+    }
+    if (status === 'NEEDS_MANUAL_REVIEW') {
+      return <Badge bg='dark'>Manual Review</Badge>
+    }
+    return <Badge bg='secondary'>{status}</Badge>
+  }
+
   if (!claimId) {
     return <Alert variant='danger'>Missing claim id.</Alert>
   }
@@ -166,6 +201,30 @@ function ClaimDocumentsSummary() {
                 <div>Mismatch: {summary.mismatch_receipts}</div>
                 <div>Error: {summary.error_receipts}</div>
               </div>
+              <hr />
+              <div className='d-flex flex-wrap gap-3 align-items-center'>
+                <div>
+                  <strong>Overall Validation:</strong>{' '}
+                  {renderOcrValidationBadge(summary.ocr_validation_status)}
+                </div>
+                <div>
+                  <strong>Distance:</strong>{' '}
+                  <Badge bg={summary.distance_validation_status === 'DISTANCE_VALID' ? 'success' : 'secondary'}>
+                    {summary.distance_validation_status || 'Pending'}
+                  </Badge>
+                </div>
+                <div>
+                  <strong>Driving Distance:</strong>{' '}
+                  {summary.driving_distance_km !== null && summary.driving_distance_km !== undefined
+                    ? `${summary.driving_distance_km.toFixed(1)} km`
+                    : '-'}
+                </div>
+              </div>
+              {summary.validation_message ? (
+                <Alert variant={summary.needs_manual_review ? 'warning' : 'info'} className='mt-3 mb-0'>
+                  {summary.validation_message}
+                </Alert>
+              ) : null}
             </Card.Body>
           </Card>
 
@@ -178,32 +237,55 @@ function ClaimDocumentsSummary() {
                     <th>Receipt</th>
                     <th>Line</th>
                     <th>Status</th>
+                    <th>OCR Validation</th>
                     <th>Vendor</th>
-                    <th>Total</th>
+                    <th>Claimed</th>
+                    <th>Extracted</th>
+                    <th>Variance</th>
                     <th>Notes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {summary.receipts.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className='text-center py-3'>
+                      <td colSpan={9} className='text-center py-3'>
                         No receipts uploaded.
                       </td>
                     </tr>
                   ) : (
                     summary.receipts.map((receipt) => (
-                      <tr key={String(receipt.id)}>
+                      <tr
+                        key={String(receipt.id)}
+                        className={receipt.ocr_result?.needs_manual_review ? 'table-warning' : undefined}
+                      >
                         <td>{receipt.file_name}</td>
                         <td>{receipt.claim_line}</td>
                         <td>{renderStatusBadge(receipt.ocr_result?.match_status)}</td>
+                        <td>{renderOcrValidationBadge(receipt.ocr_result?.ocr_validation_status)}</td>
                         <td>{receipt.ocr_result?.vendor_name ?? '-'}</td>
                         <td>
-                          {receipt.ocr_result?.total_amount !== undefined &&
-                          receipt.ocr_result?.total_amount !== null
-                            ? receipt.ocr_result.total_amount.toFixed(2)
+                          {receipt.ocr_result?.claimed_fee !== undefined &&
+                          receipt.ocr_result?.claimed_fee !== null
+                            ? receipt.ocr_result.claimed_fee.toFixed(2)
                             : '-'}
                         </td>
-                        <td>{receipt.ocr_result?.notes ?? '-'}</td>
+                        <td>
+                          {receipt.ocr_result?.ocr_extracted_fee !== undefined &&
+                          receipt.ocr_result?.ocr_extracted_fee !== null
+                            ? receipt.ocr_result.ocr_extracted_fee.toFixed(2)
+                            : '-'}
+                        </td>
+                        <td>
+                          {receipt.ocr_result?.percentage_variance !== undefined &&
+                          receipt.ocr_result?.percentage_variance !== null
+                            ? `${receipt.ocr_result.percentage_variance.toFixed(2)}%`
+                            : '-'}
+                        </td>
+                        <td>
+                          {receipt.ocr_result?.ocr_validation_message ||
+                            receipt.ocr_result?.notes ||
+                            '-'}
+                        </td>
                       </tr>
                     ))
                   )}

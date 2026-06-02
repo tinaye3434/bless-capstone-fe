@@ -54,6 +54,18 @@ function Sidebar() {
                 <p>Receipts</p>
               </NavLink>
             </li>
+            <li className='nav-item'>
+              <NavLink to='/fraud-alerts'>
+                <i className='fas fa-shield-alt'></i>
+                <p>Fraud Alerts</p>
+              </NavLink>
+            </li>
+            <li className='nav-item'>
+              <NavLink to='/reports'>
+                <i className='fas fa-chart-line'></i>
+                <p>Reports</p>
+              </NavLink>
+            </li>
 
             <li className='nav-section'>
               <span className='sidebar-mini-icon'>

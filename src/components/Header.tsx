@@ -7,6 +7,7 @@ function Header() {
   const user = getUser()
   const initials = getInitials(user)
   const displayName = getDisplayName(user)
+  const email = typeof user?.email === 'string' ? user.email : '-'
 
   const handleLogout = async () => {
     try {
@@ -106,7 +107,7 @@ function Header() {
                       </div>
                       <div className='u-text'>
                         <h4>{displayName}</h4>
-                        <p className='text-muted'>{user?.email || '-'}</p>
+                        <p className='text-muted'>{email}</p>
                         <Link to='/profile' className='btn btn-xs btn-secondary btn-sm'>
                           View Profile
                         </Link>

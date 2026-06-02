@@ -39,6 +39,15 @@ type Receipt = {
   } | null
 }
 
+type ValidationFeedback = {
+  detail?: string
+  validation_status?: string
+  validation_message?: string
+  ocr_validation_status?: string
+  distance_validation_status?: string
+  needs_manual_review?: boolean
+}
+
 type AllowanceOption = {
   id: number | string
   title?: string
@@ -278,8 +287,15 @@ function ClaimDocuments() {
         user_distance: parsedUserDistance,
         actual_mileage: parsedUserDistance,
       })
-      await axios.post(`${CLAIMS_ENDPOINT}${claimId}/submit-documents/`)
-      navigate(-1)
+      const response = await axios.post<ValidationFeedback>(`${CLAIMS_ENDPOINT}${claimId}/submit-documents/`)
+      const payload = response.data
+      const summary = [payload.validation_status, payload.ocr_validation_status, payload.distance_validation_status]
+        .filter(Boolean)
+        .join(' | ')
+      setSuccess(
+        `${payload.detail || 'Receipts submitted.'}${payload.validation_message ? ` ${payload.validation_message}` : ''}${summary ? ` (${summary})` : ''}`,
+      )
+      navigate(`/claims/${claimId}/documents/summary`)
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const detail = (err.response?.data as { detail?: string } | undefined)?.detail

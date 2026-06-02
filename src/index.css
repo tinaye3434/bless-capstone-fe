@@ -2547,3 +2547,246 @@ h6,
     width: 100%;
   }
 }
+
+.fraud-dashboard .fraud-breadcrumb .breadcrumb-item + .breadcrumb-item::before {
+  color: var(--muted);
+}
+
+.fraud-dashboard .fraud-chart-wrap {
+  width: 100%;
+  min-height: 220px;
+}
+
+.fraud-stat-card {
+  min-height: 150px;
+}
+
+.risk-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.risk-indicator-high {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.risk-indicator-medium {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.risk-indicator-low {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.fraud-categories-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.fraud-category-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 0.9rem;
+  font-size: 0.92rem;
+}
+
+.fraud-investigation-block {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 1rem;
+  height: 100%;
+}
+
+.fraud-investigation-title {
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-weight: 700;
+  margin-bottom: 0.9rem;
+  color: #17367f;
+}
+
+.fraud-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px dashed #dbe5f2;
+  padding: 0.45rem 0;
+  font-size: 0.9rem;
+}
+
+.fraud-detail-row:last-child {
+  border-bottom: 0;
+}
+
+.fraud-route-preview {
+  position: relative;
+  margin-top: 0.8rem;
+  border: 1px solid #dbe5f2;
+  border-radius: 14px;
+  height: 108px;
+  background: linear-gradient(135deg, #eef7f6 0%, #f7fafc 100%);
+  overflow: hidden;
+}
+
+.fraud-route-preview span {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 0.7rem;
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.fraud-route-line {
+  position: absolute;
+  top: 46%;
+  left: 12%;
+  right: 14%;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, #0f766e 0 8px, #99f6e4 8px 14px);
+}
+
+.fraud-route-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  top: calc(46% - 6px);
+}
+
+.fraud-route-dot.start {
+  left: 10%;
+  background: #0f766e;
+}
+
+.fraud-route-dot.end {
+  right: 12%;
+  background: #b91c1c;
+}
+
+.fraud-anomalies-list {
+  margin: 0.75rem 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.fraud-anomaly-item {
+  border-radius: 10px;
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #7f1d1d;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.fraud-critical-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  background: #fff;
+  padding: 1rem;
+  height: 100%;
+}
+
+.fraud-critical-title {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fraud-critical-value {
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-size: 1.6rem;
+  margin: 0.4rem 0;
+  color: #10224f;
+}
+
+.fraud-critical-description {
+  font-size: 0.86rem;
+  color: var(--muted);
+  margin-bottom: 0.6rem;
+}
+
+@media (max-width: 991.98px) {
+  .fraud-categories-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reports-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.reports-tab {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: #1e293b;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.reports-tab.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.reports-chart {
+  width: 100%;
+  min-height: 240px;
+}
+
+.reports-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.reports-gallery-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--shadow-card);
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.reports-gallery-card h5 {
+  margin: 0;
+}
+
+.reports-gallery-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 991.98px) {
+  .reports-gallery-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -14,6 +14,8 @@ export type AuthPayload = {
 
 const STORAGE_KEY = 'tns_auth'
 
+const asText = (value: unknown): string => (typeof value === 'string' ? value : '')
+
 export const getAuth = (): AuthPayload | null => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -64,8 +66,11 @@ export const getDisplayName = (user?: AuthUser | null): string => {
     return 'User'
   }
 
-  const fullName = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
-  return fullName || user.username || 'User'
+  const firstName = asText(user.first_name).trim()
+  const lastName = asText(user.last_name).trim()
+  const username = asText(user.username).trim()
+  const fullName = `${firstName} ${lastName}`.trim()
+  return fullName || username || 'User'
 }
 
 export const getInitials = (user?: AuthUser | null): string => {
@@ -84,7 +89,11 @@ export const getInitials = (user?: AuthUser | null): string => {
 
 export const getRole = (): string | null => {
   const auth = getAuth()
-  return auth?.user?.role ?? null
+  const role = auth?.user?.role
+  if (typeof role !== 'string') {
+    return null
+  }
+  return role
 }
 
 export const isSuperUser = (): boolean => getRole() === 'SUPERUSER'

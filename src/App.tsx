@@ -22,6 +22,9 @@ import PendingClaims from './pages/PendingClaims'
 import Profile from './pages/Profile'
 import LandingPage from './pages/LandingPage'
 import Signup from './pages/Signup'
+import FraudAlertsDashboard from './pages/FraudAlertsDashboard'
+import Reports from './pages/Reports'
+import ReportDetail from './pages/ReportDetail'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import { getToken } from './utils/auth'
 
@@ -90,6 +93,9 @@ function App() {
           <Route path='/settings' element={<Settings />} />
           <Route path='/create-claim' element={<CreateClaim />} />
           <Route path='/fraud-training' element={<FraudTraining />} />
+          <Route path='/fraud-alerts' element={<FraudAlertsDashboard />} />
+          <Route path='/reports' element={<Reports />} />
+          <Route path='/reports/:reportType' element={<ReportDetail />} />
         </Route>
       </>,
     ),

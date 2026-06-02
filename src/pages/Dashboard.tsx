@@ -32,15 +32,23 @@ function Dashboard() {
     const fetchDashboardData = async () => {
       setError(null)
       try {
-        const [claimsResponse, employeesResponse, stagesResponse] = await Promise.all([
+        const [claimsResult, employeesResult, stagesResult] = await Promise.allSettled([
           axios.get(CLAIMS_ENDPOINT),
           axios.get(EMPLOYEES_ENDPOINT),
           axios.get(APPROVAL_STAGES_ENDPOINT),
         ])
 
-        const normalizedClaims = normalizeClaimsResponse(claimsResponse.data)
-        const normalizedEmployees = normalizeEmployeesResponse(employeesResponse.data)
-        const stages = normalizeStagesResponse(stagesResponse.data)
+        if (claimsResult.status !== 'fulfilled') {
+          throw claimsResult.reason
+        }
+
+        const normalizedClaims = normalizeClaimsResponse(claimsResult.value.data)
+        const normalizedEmployees =
+          employeesResult.status === 'fulfilled'
+            ? normalizeEmployeesResponse(employeesResult.value.data)
+            : []
+        const stages =
+          stagesResult.status === 'fulfilled' ? normalizeStagesResponse(stagesResult.value.data) : []
         const finalStageId = getFinalStageId(stages)
         const employeeMap = new Map(
           normalizedEmployees.map((employee) => [String(employee.id), getEmployeeLabel(employee)]),
@@ -49,6 +57,9 @@ function Dashboard() {
         setClaims(normalizedClaims)
         setEmployees(normalizedEmployees)
         setClaimRows(normalizedClaims.map((claim) => mapClaimRow(claim, employeeMap, finalStageId)))
+        if (employeesResult.status !== 'fulfilled' || stagesResult.status !== 'fulfilled') {
+          setError('Some dashboard data could not be loaded. Showing available insights.')
+        }
       } catch (fetchError) {
         setError('Failed to load dashboard insights.')
         console.error(fetchError)
@@ -106,6 +117,7 @@ function Dashboard() {
   const pendingReviews = claimRows.filter(
     (claim) => claim.status === 'pending' && claim.documents_submitted,
   ).length
+  const roleLabel = typeof currentUser?.role === 'string' ? currentUser.role : 'EMPLOYEE'
 
   const canCreateClaim = useMemo(() => {
     if (currentEmployeeIds.size === 0) {
@@ -221,7 +233,7 @@ function Dashboard() {
               </div>
               <div className='d-flex justify-content-between align-items-center'>
                 <span>Role</span>
-                <span className='badge-soft'>{currentUser?.role ?? 'EMPLOYEE'}</span>
+                <span className='badge-soft'>{roleLabel}</span>
               </div>
             </div>
           </div>
