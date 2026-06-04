@@ -1,5 +1,7 @@
 export type RiskLevel = 'low' | 'medium' | 'high'
 
+export type DisplayValue = string | number | boolean | null | undefined | Record<string, unknown> | DisplayValue[]
+
 export type FraudAlertStatus = 'open' | 'under_review' | 'confirmed_fraud' | 'resolved'
 
 export type FraudKpis = {
@@ -39,8 +41,10 @@ export type FraudCategoryMetric = {
 }
 
 export type FraudAlertRow = {
+  fraudScoreId: number
   alertId: string
   claimNumber: string
+  claimId: number
   employeeName: string
   department: string
   claimAmount: number
@@ -49,12 +53,13 @@ export type FraudAlertRow = {
   dateSubmitted: string
   status: FraudAlertStatus
   riskLevel: RiskLevel
+  flagReasons: DisplayValue[]
 }
 
 export type InvestigationRecord = {
   alertId: string
   claimedAmount: number
-  ocrExtractedAmount: number
+  ocrExtractedAmount: number | null
   variancePercent: number
   financialFlagStatus: 'Flagged' | 'Clear'
   claimedDistanceKm: number
@@ -73,7 +78,7 @@ export type CriticalAlertCard = {
   severity: RiskLevel
 }
 
-export const FRAUD_DASHBOARD_DATA: {
+export type FraudDashboardData = {
   kpis: FraudKpis
   alertsOverTime: FraudTrendPoint[]
   monthlyDetectionTrends: FraudTrendPoint[]
@@ -82,9 +87,75 @@ export const FRAUD_DASHBOARD_DATA: {
   riskLevelDistribution: RiskDistributionPoint[]
   categories: FraudCategoryMetric[]
   alerts: FraudAlertRow[]
-  investigation: InvestigationRecord
+  investigation: InvestigationRecord | null
   criticalAlerts: CriticalAlertCard[]
-} = {
+}
+
+export type FraudAlertDetail = {
+  fraudScoreId: number
+  alertId: string
+  alertStatus: FraudAlertStatus
+  investigationFindings: string
+  resolutionJustification: string
+  investigatedAt?: string | null
+  resolvedAt?: string | null
+  claim: {
+    id: number
+    claimNumber: string
+    employeeId: number | string
+    employeeName: string
+    department: string
+    purpose: string
+    origin: string
+    destination: string
+    departureDate?: string
+    returnDate?: string
+    total: number
+    approvalStatus: string
+    documentsSubmitted: boolean
+  }
+  risk: {
+    score: number
+    rawScore: number
+    riskLevel: RiskLevel
+    fraudType: string
+    ruleFlags: Array<{
+      code: string
+      severity: RiskLevel | 'info'
+      message: DisplayValue
+    }>
+    flagReasons: DisplayValue[]
+    features: Record<string, unknown>
+    createdAt?: string
+    updatedAt?: string
+  }
+  validation: {
+    status: string
+    message: DisplayValue
+    needsManualReview: boolean
+    ocrStatus: string
+    distanceStatus: string
+  }
+  gps: {
+    baseDistanceKm: number | null
+    adjustedDistanceKm: number
+    claimedDistanceKm: number
+    varianceKm: number | null
+    variancePercent: number | null
+    thresholdPercent: number | null
+    source: string
+  }
+  ocr: {
+    totalReceiptsProcessed: number
+    mismatches: number
+    errors: number
+    claimedFee: number
+    extractedTotal: number | null
+    highestVariancePercent: number | null
+  }
+}
+
+export const FRAUD_DASHBOARD_DATA: FraudDashboardData = {
   kpis: {
     totalClaimsProcessed: 1248,
     totalFraudAlertsGenerated: 186,
@@ -151,8 +222,10 @@ export const FRAUD_DASHBOARD_DATA: {
   ],
   alerts: [
     {
+      fraudScoreId: 1,
       alertId: 'FA-2026-001',
       claimNumber: 'CLM-7821',
+      claimId: 7821,
       employeeName: 'Tendai Moyo',
       department: 'Finance',
       claimAmount: 1285.4,
@@ -161,10 +234,13 @@ export const FRAUD_DASHBOARD_DATA: {
       dateSubmitted: '2026-05-24',
       status: 'under_review',
       riskLevel: 'high',
+      flagReasons: ['Duplicate Receipt Submission'],
     },
     {
+      fraudScoreId: 2,
       alertId: 'FA-2026-002',
       claimNumber: 'CLM-7825',
+      claimId: 7825,
       employeeName: 'Rudo Chikafu',
       department: 'Operations',
       claimAmount: 945.12,
@@ -173,10 +249,13 @@ export const FRAUD_DASHBOARD_DATA: {
       dateSubmitted: '2026-05-25',
       status: 'open',
       riskLevel: 'high',
+      flagReasons: ['Receipt Amount Mismatch'],
     },
     {
+      fraudScoreId: 3,
       alertId: 'FA-2026-003',
       claimNumber: 'CLM-7833',
+      claimId: 7833,
       employeeName: 'Munashe Dube',
       department: 'HR',
       claimAmount: 420.55,
@@ -185,10 +264,13 @@ export const FRAUD_DASHBOARD_DATA: {
       dateSubmitted: '2026-05-26',
       status: 'resolved',
       riskLevel: 'medium',
+      flagReasons: ['Missing Supporting Documents'],
     },
     {
+      fraudScoreId: 4,
       alertId: 'FA-2026-004',
       claimNumber: 'CLM-7839',
+      claimId: 7839,
       employeeName: 'Ashley Sibanda',
       department: 'Projects',
       claimAmount: 1678.92,
@@ -197,10 +279,13 @@ export const FRAUD_DASHBOARD_DATA: {
       dateSubmitted: '2026-05-26',
       status: 'confirmed_fraud',
       riskLevel: 'high',
+      flagReasons: ['Claimed Distance Exceeds Verified Driving Distance'],
     },
     {
+      fraudScoreId: 5,
       alertId: 'FA-2026-005',
       claimNumber: 'CLM-7842',
+      claimId: 7842,
       employeeName: 'John Ncube',
       department: 'ICT',
       claimAmount: 590,
@@ -209,10 +294,13 @@ export const FRAUD_DASHBOARD_DATA: {
       dateSubmitted: '2026-05-27',
       status: 'under_review',
       riskLevel: 'medium',
+      flagReasons: ['OCR Extraction Discrepancies'],
     },
     {
+      fraudScoreId: 6,
       alertId: 'FA-2026-006',
       claimNumber: 'CLM-7848',
+      claimId: 7848,
       employeeName: 'Precious Mhlanga',
       department: 'Procurement',
       claimAmount: 1122.8,
@@ -221,6 +309,7 @@ export const FRAUD_DASHBOARD_DATA: {
       dateSubmitted: '2026-05-29',
       status: 'open',
       riskLevel: 'low',
+      flagReasons: ['Excessive Per Diem Claims'],
     },
   ],
   investigation: {
@@ -274,6 +363,32 @@ export const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 
 export const formatPercent = (value: number) => `${value.toFixed(1)}%`
+
+export const formatDisplayValue = (value: DisplayValue): string => {
+  if (value === null || value === undefined) {
+    return ''
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  if (Array.isArray(value)) {
+    return value.map(formatDisplayValue).filter(Boolean).join(', ')
+  }
+
+  const preferredValue = value.detail ?? value.message ?? value.error ?? value.reason
+  if (preferredValue !== undefined) {
+    return formatDisplayValue(preferredValue as DisplayValue)
+  }
+
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
 
 export const formatFraudStatus = (status: FraudAlertStatus): string => {
   const byStatus: Record<FraudAlertStatus, string> = {

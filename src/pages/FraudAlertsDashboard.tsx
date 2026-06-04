@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Breadcrumb, Button, Form, Table } from 'react-bootstrap'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
+import { Alert, Breadcrumb, Button, Form, Modal, Spinner, Table } from 'react-bootstrap'
+import { useNavigate } from 'react-router-dom'
 import {
   Bar,
   BarChart,
@@ -15,13 +17,13 @@ import {
   YAxis,
 } from 'recharts'
 import {
-  FRAUD_DASHBOARD_DATA,
   exportFraudAlertsCsv,
   formatCurrency,
   formatFraudStatus,
   formatPercent,
   getFraudStatusClassName,
   getRiskClassName,
+  type FraudDashboardData,
 } from '../utils/fraud'
 
 type DateRangeFilter = 'last_30' | 'last_90' | 'year_to_date'
@@ -33,23 +35,152 @@ const RISK_COLOR_MAP = {
   High: '#b91c1c',
 }
 
+const FRAUD_ALERTS_DASHBOARD_ENDPOINT = '/api/fraud/alerts-dashboard/'
+const FRAUD_ALERT_RESOLVE_ENDPOINT = (id: number) => `/api/fraud/alerts/${id}/resolve/`
+
+const emptyDashboardData: FraudDashboardData = {
+  kpis: {
+    totalClaimsProcessed: 0,
+    totalFraudAlertsGenerated: 0,
+    highRiskClaims: 0,
+    claimsUnderInvestigation: 0,
+    resolvedAlerts: 0,
+    fraudDetectionRate: 0,
+    potentialFinancialExposureUsd: 0,
+  },
+  alertsOverTime: [],
+  monthlyDetectionTrends: [],
+  alertsByDepartment: [],
+  alertsByFraudType: [],
+  riskLevelDistribution: [
+    { riskLevel: 'Low', count: 0 },
+    { riskLevel: 'Medium', count: 0 },
+    { riskLevel: 'High', count: 0 },
+  ],
+  categories: [],
+  alerts: [],
+  investigation: null,
+  criticalAlerts: [],
+}
+
+const isWithinDateRange = (dateSubmitted: string, range: DateRangeFilter) => {
+  const submitted = new Date(dateSubmitted)
+  if (Number.isNaN(submitted.getTime())) {
+    return true
+  }
+
+  const now = new Date()
+  if (range === 'year_to_date') {
+    return submitted.getFullYear() === now.getFullYear()
+  }
+
+  const days = range === 'last_30' ? 30 : 90
+  const cutoff = new Date(now)
+  cutoff.setDate(cutoff.getDate() - days)
+  return submitted >= cutoff
+}
+
 function FraudAlertsDashboard() {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [dateRange, setDateRange] = useState<DateRangeFilter>('last_90')
   const [department, setDepartment] = useState('all')
   const [riskLevel, setRiskLevel] = useState('all')
   const [sortField, setSortField] = useState<SortField>('riskScore')
+  const [dashboardData, setDashboardData] = useState<FraudDashboardData>(emptyDashboardData)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [resolveAlert, setResolveAlert] = useState<{
+    fraudScoreId: number
+    alertId: string
+    claimNumber: string
+  } | null>(null)
+  const [resolveJustification, setResolveJustification] = useState('')
+  const [resolving, setResolving] = useState(false)
+
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await axios.get<FraudDashboardData>(FRAUD_ALERTS_DASHBOARD_ENDPOINT)
+      setDashboardData({
+        ...emptyDashboardData,
+        ...response.data,
+        kpis: {
+          ...emptyDashboardData.kpis,
+          ...(response.data.kpis ?? {}),
+        },
+        investigation: response.data.investigation ?? null,
+      })
+    } catch (fetchError) {
+      setError('Failed to load real fraud alert data.')
+      console.error(fetchError)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchDashboardData()
+  }, [fetchDashboardData])
+
+  const closeResolveModal = () => {
+    if (resolving) {
+      return
+    }
+    setResolveAlert(null)
+    setResolveJustification('')
+  }
+
+  const submitResolve = async () => {
+    if (!resolveAlert) {
+      return
+    }
+
+    const trimmedJustification = resolveJustification.trim()
+    if (!trimmedJustification) {
+      setError('Resolution justification is required.')
+      return
+    }
+
+    setResolving(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      await axios.post(FRAUD_ALERT_RESOLVE_ENDPOINT(resolveAlert.fraudScoreId), {
+        justification: trimmedJustification,
+      })
+      setSuccess(`${resolveAlert.alertId} resolved.`)
+      setResolveAlert(null)
+      setResolveJustification('')
+      await fetchDashboardData()
+    } catch (resolveError) {
+      if (axios.isAxiosError(resolveError)) {
+        const detail = (resolveError.response?.data as { detail?: string } | undefined)?.detail
+        setError(detail || 'Failed to resolve fraud alert.')
+      } else {
+        setError('Failed to resolve fraud alert.')
+      }
+      console.error(resolveError)
+    } finally {
+      setResolving(false)
+    }
+  }
 
   const departments = useMemo(
-    () => Array.from(new Set(FRAUD_DASHBOARD_DATA.alerts.map((item) => item.department))),
-    [],
+    () => Array.from(new Set(dashboardData.alerts.map((item) => item.department))),
+    [dashboardData.alerts],
   )
 
   const filteredAlerts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
-    const rows = FRAUD_DASHBOARD_DATA.alerts.filter((row) => {
+    const rows = dashboardData.alerts.filter((row) => {
       const departmentMatch = department === 'all' || row.department === department
       const riskMatch = riskLevel === 'all' || row.riskLevel === riskLevel
+      const dateMatch = isWithinDateRange(row.dateSubmitted, dateRange)
       const queryMatch =
         !normalizedQuery ||
         row.alertId.toLowerCase().includes(normalizedQuery) ||
@@ -58,7 +189,7 @@ function FraudAlertsDashboard() {
         row.department.toLowerCase().includes(normalizedQuery) ||
         row.fraudType.toLowerCase().includes(normalizedQuery)
 
-      return departmentMatch && riskMatch && queryMatch
+      return departmentMatch && riskMatch && dateMatch && queryMatch
     })
 
     return rows.sort((a, b) => {
@@ -70,7 +201,7 @@ function FraudAlertsDashboard() {
       }
       return new Date(b.dateSubmitted).getTime() - new Date(a.dateSubmitted).getTime()
     })
-  }, [department, query, riskLevel, sortField])
+  }, [dashboardData.alerts, dateRange, department, query, riskLevel, sortField])
 
   const filteredKpis = useMemo(() => {
     const totalAlerts = filteredAlerts.length
@@ -79,12 +210,12 @@ function FraudAlertsDashboard() {
     const resolved = filteredAlerts.filter((row) => row.status === 'resolved').length
     const exposure = filteredAlerts.reduce((sum, row) => sum + row.claimAmount, 0)
     const detectionRate =
-      FRAUD_DASHBOARD_DATA.kpis.totalClaimsProcessed > 0
-        ? (totalAlerts / FRAUD_DASHBOARD_DATA.kpis.totalClaimsProcessed) * 100
+      dashboardData.kpis.totalClaimsProcessed > 0
+        ? (totalAlerts / dashboardData.kpis.totalClaimsProcessed) * 100
         : 0
 
     return {
-      totalClaimsProcessed: FRAUD_DASHBOARD_DATA.kpis.totalClaimsProcessed,
+      totalClaimsProcessed: dashboardData.kpis.totalClaimsProcessed,
       totalFraudAlertsGenerated: totalAlerts,
       highRiskClaims: highRisk,
       claimsUnderInvestigation: underInvestigation,
@@ -92,7 +223,7 @@ function FraudAlertsDashboard() {
       fraudDetectionRate: detectionRate,
       potentialFinancialExposureUsd: exposure,
     }
-  }, [filteredAlerts])
+  }, [dashboardData.kpis.totalClaimsProcessed, filteredAlerts])
 
   const exportLabel = `Export (${filteredAlerts.length} alerts)`
 
@@ -124,6 +255,14 @@ function FraudAlertsDashboard() {
 
       <div className='card mb-4'>
         <div className='card-body'>
+          {error ? <Alert variant='danger'>{error}</Alert> : null}
+          {success ? <Alert variant='success'>{success}</Alert> : null}
+          {loading ? (
+            <div className='d-flex align-items-center'>
+              <Spinner animation='border' size='sm' className='me-2' />
+              Loading real fraud alert data...
+            </div>
+          ) : null}
           <div className='row g-3'>
             <div className='col-lg-4 col-md-6'>
               <Form.Control
@@ -220,7 +359,7 @@ function FraudAlertsDashboard() {
               <h5 className='mb-3'>Fraud Alerts Over Time</h5>
               <div className='fraud-chart-wrap'>
                 <ResponsiveContainer width='100%' height={280}>
-                  <LineChart data={FRAUD_DASHBOARD_DATA.alertsOverTime}>
+                  <LineChart data={dashboardData.alertsOverTime}>
                     <XAxis dataKey='label' />
                     <YAxis />
                     <Tooltip />
@@ -240,13 +379,13 @@ function FraudAlertsDashboard() {
                 <ResponsiveContainer width='100%' height={280}>
                   <PieChart>
                     <Pie
-                      data={FRAUD_DASHBOARD_DATA.riskLevelDistribution}
+                      data={dashboardData.riskLevelDistribution}
                       dataKey='count'
                       nameKey='riskLevel'
                       outerRadius={92}
                       label
                     >
-                      {FRAUD_DASHBOARD_DATA.riskLevelDistribution.map((entry) => (
+                      {dashboardData.riskLevelDistribution.map((entry) => (
                         <Cell key={entry.riskLevel} fill={RISK_COLOR_MAP[entry.riskLevel]} />
                       ))}
                     </Pie>
@@ -267,7 +406,7 @@ function FraudAlertsDashboard() {
               <h5 className='mb-3'>Monthly Fraud Detection Trends</h5>
               <div className='fraud-chart-wrap'>
                 <ResponsiveContainer width='100%' height={240}>
-                  <BarChart data={FRAUD_DASHBOARD_DATA.monthlyDetectionTrends}>
+                  <BarChart data={dashboardData.monthlyDetectionTrends}>
                     <XAxis dataKey='label' />
                     <YAxis />
                     <Tooltip />
@@ -284,7 +423,7 @@ function FraudAlertsDashboard() {
               <h5 className='mb-3'>Alerts by Department</h5>
               <div className='fraud-chart-wrap'>
                 <ResponsiveContainer width='100%' height={240}>
-                  <BarChart data={FRAUD_DASHBOARD_DATA.alertsByDepartment} layout='vertical'>
+                  <BarChart data={dashboardData.alertsByDepartment} layout='vertical'>
                     <XAxis type='number' />
                     <YAxis dataKey='department' type='category' width={96} />
                     <Tooltip />
@@ -302,7 +441,7 @@ function FraudAlertsDashboard() {
           <h5 className='mb-3'>Alerts by Fraud Type</h5>
           <div className='fraud-chart-wrap'>
             <ResponsiveContainer width='100%' height={280}>
-              <BarChart data={FRAUD_DASHBOARD_DATA.alertsByFraudType}>
+              <BarChart data={dashboardData.alertsByFraudType}>
                 <XAxis dataKey='fraudType' />
                 <YAxis />
                 <Tooltip />
@@ -335,7 +474,13 @@ function FraudAlertsDashboard() {
               </tr>
             </thead>
             <tbody>
-              {filteredAlerts.map((row) => (
+              {filteredAlerts.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className='text-center py-4 text-muted'>
+                    No fraud alerts found from current system data.
+                  </td>
+                </tr>
+              ) : filteredAlerts.map((row) => (
                 <tr key={row.alertId}>
                   <td>{row.alertId}</td>
                   <td>{row.claimNumber}</td>
@@ -352,14 +497,36 @@ function FraudAlertsDashboard() {
                   </td>
                   <td>
                     <div className='d-flex gap-2 flex-wrap'>
-                      <Button size='sm' variant='outline-primary'>
+                      <Button
+                        size='sm'
+                        variant='outline-primary'
+                        onClick={() => navigate(`/fraud-alerts/${row.fraudScoreId}`)}
+                      >
                         View
                       </Button>
-                      <Button size='sm' variant='outline-warning'>
+                      <Button
+                        size='sm'
+                        variant='outline-warning'
+                        onClick={() => navigate(`/fraud-alerts/${row.fraudScoreId}/investigate`)}
+                      >
                         Investigate
                       </Button>
-                      <Button size='sm' variant='outline-danger'>
-                        Escalate
+                      <Button
+                        size='sm'
+                        variant='outline-success'
+                        disabled={row.status === 'resolved'}
+                        onClick={() => {
+                          setError(null)
+                          setSuccess(null)
+                          setResolveJustification('')
+                          setResolveAlert({
+                            fraudScoreId: row.fraudScoreId,
+                            alertId: row.alertId,
+                            claimNumber: row.claimNumber,
+                          })
+                        }}
+                      >
+                        Resolve
                       </Button>
                     </div>
                   </td>
@@ -374,7 +541,9 @@ function FraudAlertsDashboard() {
         <div className='card-body'>
           <h5 className='mb-3'>Fraud Detection Categories</h5>
           <div className='fraud-categories-grid'>
-            {FRAUD_DASHBOARD_DATA.categories.map((item) => (
+            {dashboardData.categories.length === 0 ? (
+              <div className='text-muted'>No fraud categories have been detected yet.</div>
+            ) : dashboardData.categories.map((item) => (
               <div key={item.name} className='fraud-category-card'>
                 <div className='d-flex justify-content-between align-items-center gap-2'>
                   <span>{item.name}</span>
@@ -386,6 +555,7 @@ function FraudAlertsDashboard() {
         </div>
       </div>
 
+      {dashboardData.investigation ? (
       <div className='card mb-4'>
         <div className='card-body'>
           <h5 className='mb-3'>AI Investigation Panel</h5>
@@ -393,18 +563,18 @@ function FraudAlertsDashboard() {
             <div className='col-xl-4'>
               <div className='fraud-investigation-block'>
                 <div className='fraud-investigation-title'>Financial Verification</div>
-                <div className='fraud-detail-row'><span>Claimed Amount</span><strong>{formatCurrency(FRAUD_DASHBOARD_DATA.investigation.claimedAmount)}</strong></div>
-                <div className='fraud-detail-row'><span>OCR Extracted Amount</span><strong>{formatCurrency(FRAUD_DASHBOARD_DATA.investigation.ocrExtractedAmount)}</strong></div>
-                <div className='fraud-detail-row'><span>Variance %</span><strong>{formatPercent(FRAUD_DASHBOARD_DATA.investigation.variancePercent)}</strong></div>
-                <div className='fraud-detail-row'><span>Flag Status</span><span className={getRiskClassName('high')}>{FRAUD_DASHBOARD_DATA.investigation.financialFlagStatus}</span></div>
+                <div className='fraud-detail-row'><span>Claimed Amount</span><strong>{formatCurrency(dashboardData.investigation.claimedAmount)}</strong></div>
+                <div className='fraud-detail-row'><span>OCR Extracted Amount</span><strong>{dashboardData.investigation.ocrExtractedAmount === null ? '-' : formatCurrency(dashboardData.investigation.ocrExtractedAmount)}</strong></div>
+                <div className='fraud-detail-row'><span>Variance %</span><strong>{formatPercent(dashboardData.investigation.variancePercent)}</strong></div>
+                <div className='fraud-detail-row'><span>Flag Status</span><span className={getRiskClassName(dashboardData.investigation.financialFlagStatus === 'Flagged' ? 'high' : 'low')}>{dashboardData.investigation.financialFlagStatus}</span></div>
               </div>
             </div>
             <div className='col-xl-4'>
               <div className='fraud-investigation-block'>
                 <div className='fraud-investigation-title'>Distance Verification</div>
-                <div className='fraud-detail-row'><span>Claimed Distance</span><strong>{FRAUD_DASHBOARD_DATA.investigation.claimedDistanceKm} km</strong></div>
-                <div className='fraud-detail-row'><span>Verified Driving Distance</span><strong>{FRAUD_DASHBOARD_DATA.investigation.verifiedDrivingDistanceKm} km</strong></div>
-                <div className='fraud-detail-row'><span>Difference</span><strong>{FRAUD_DASHBOARD_DATA.investigation.distanceDifferenceKm} km</strong></div>
+                <div className='fraud-detail-row'><span>Claimed Distance</span><strong>{dashboardData.investigation.claimedDistanceKm.toFixed(1)} km</strong></div>
+                <div className='fraud-detail-row'><span>Verified Driving Distance</span><strong>{dashboardData.investigation.verifiedDrivingDistanceKm.toFixed(1)} km</strong></div>
+                <div className='fraud-detail-row'><span>Difference</span><strong>{dashboardData.investigation.distanceDifferenceKm.toFixed(1)} km</strong></div>
                 <div className='fraud-route-preview'>
                   <div className='fraud-route-line'></div>
                   <div className='fraud-route-dot start'></div>
@@ -416,14 +586,14 @@ function FraudAlertsDashboard() {
             <div className='col-xl-4'>
               <div className='fraud-investigation-block'>
                 <div className='fraud-investigation-title'>AI Analysis</div>
-                <div className='fraud-detail-row'><span>AI Confidence</span><strong>{FRAUD_DASHBOARD_DATA.investigation.aiConfidenceScore}%</strong></div>
-                <div className='fraud-detail-row'><span>Risk Classification</span><span className={getRiskClassName('high')}>{FRAUD_DASHBOARD_DATA.investigation.riskClassification}</span></div>
+                <div className='fraud-detail-row'><span>AI Confidence</span><strong>{dashboardData.investigation.aiConfidenceScore}%</strong></div>
+                <div className='fraud-detail-row'><span>Risk Classification</span><span className={getRiskClassName(dashboardData.investigation.riskClassification.toLowerCase() as 'low' | 'medium' | 'high')}>{dashboardData.investigation.riskClassification}</span></div>
                 <div className='fraud-anomalies-list'>
-                  {FRAUD_DASHBOARD_DATA.investigation.detectedAnomalies.map((item) => (
+                  {dashboardData.investigation.detectedAnomalies.map((item) => (
                     <div key={item} className='fraud-anomaly-item'>{item}</div>
                   ))}
                 </div>
-                <p className='text-muted mb-0'>{FRAUD_DASHBOARD_DATA.investigation.investigationSummary}</p>
+                <p className='text-muted mb-0'>{dashboardData.investigation.investigationSummary}</p>
               </div>
             </div>
           </div>
@@ -435,12 +605,15 @@ function FraudAlertsDashboard() {
           </div>
         </div>
       </div>
+      ) : null}
 
       <div className='card'>
         <div className='card-body'>
           <h5 className='mb-3'>Recent Critical Alerts</h5>
           <div className='row g-3'>
-            {FRAUD_DASHBOARD_DATA.criticalAlerts.map((card) => (
+            {dashboardData.criticalAlerts.length === 0 ? (
+              <div className='col-12 text-muted'>No critical alerts have been generated yet.</div>
+            ) : dashboardData.criticalAlerts.map((card) => (
               <div className='col-lg-3 col-md-6' key={card.title}>
                 <div className='fraud-critical-card'>
                   <div className='fraud-critical-title'>{card.title}</div>
@@ -453,6 +626,36 @@ function FraudAlertsDashboard() {
           </div>
         </div>
       </div>
+
+      <Modal show={resolveAlert !== null} onHide={closeResolveModal} centered>
+        <Modal.Header closeButton={!resolving}>
+          <Modal.Title>Resolve Fraud Alert</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className='text-muted mb-3'>
+            {resolveAlert?.alertId} for {resolveAlert?.claimNumber}
+          </p>
+          <Form.Group controlId='fraudResolveJustification'>
+            <Form.Label>Resolution Justification</Form.Label>
+            <Form.Control
+              as='textarea'
+              rows={5}
+              value={resolveJustification}
+              onChange={(event) => setResolveJustification(event.target.value)}
+              placeholder='Explain why this fraud alert is being resolved.'
+              disabled={resolving}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant='outline-secondary' onClick={closeResolveModal} disabled={resolving}>
+            Cancel
+          </Button>
+          <Button variant='success' onClick={() => void submitResolve()} disabled={resolving}>
+            {resolving ? 'Resolving...' : 'Resolve Alert'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   )
 }

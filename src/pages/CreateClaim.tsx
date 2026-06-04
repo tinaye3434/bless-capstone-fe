@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import AppSelect, { type AppSelectOption } from '../components/AppSelect'
 import { getDisplayName, getUser, type AuthUser } from '../utils/auth'
 import { normalizeLocationsResponse, type LocationPoint } from '../utils/claims'
+import { formatDisplayValue, type DisplayValue } from '../utils/fraud'
 
 type ClaimForm = {
   employee: string
@@ -72,7 +73,22 @@ const CITIES_ENDPOINT = '/api/cities/'
 const ALLOWANCES_ENDPOINT = '/api/allowances/'
 const CLAIMS_ENDPOINT = '/api/claims/'
 const CLAIM_LINES_ENDPOINT = '/api/claim-lines/'
+const DRIVING_ROUTE_ENDPOINT = '/api/routes/driving/'
 const FORM_REQUEST_TIMEOUT_MS = 15000
+
+const formatApiError = (data: unknown, fallback: string): string => {
+  if (!data) {
+    return fallback
+  }
+
+  const detail =
+    typeof data === 'object' && !Array.isArray(data) && data !== null
+      ? (data as Record<string, unknown>).detail
+      : data
+
+  const message = formatDisplayValue((detail ?? data) as DisplayValue)
+  return message || fallback
+}
 
 const initialClaimForm: ClaimForm = {
   employee: '',
@@ -122,26 +138,6 @@ const deriveGradeRange = (grade: number | string | undefined): string | null => 
   }
 
   return null
-}
-
-const toRadians = (value: number) => (value * Math.PI) / 180
-
-const haversineDistanceKm = (
-  origin: Pick<LocationPoint, 'latitude' | 'longitude'>,
-  destination: Pick<LocationPoint, 'latitude' | 'longitude'>,
-) => {
-  const radiusKm = 6371
-  const dLat = toRadians(destination.latitude - origin.latitude)
-  const dLon = toRadians(destination.longitude - origin.longitude)
-  const lat1 = toRadians(origin.latitude)
-  const lat2 = toRadians(destination.latitude)
-
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-
-  return radiusKm * c
 }
 
 const getMealPeriodCounts = (departureDateTime: string, returnDateTime: string) => {
@@ -424,6 +420,9 @@ function CreateClaim() {
   const [savingClaim, setSavingClaim] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null)
+  const [routeDistanceLoading, setRouteDistanceLoading] = useState(false)
+  const [routeDistanceError, setRouteDistanceError] = useState<string | null>(null)
+  const [roundTripDistanceKm, setRoundTripDistanceKm] = useState(0)
   const cityOptions = useMemo(() => {
     const values = [
       formData.origin,
@@ -591,19 +590,74 @@ function CreateClaim() {
     () => getMealPeriodCounts(formData.departure_date, formData.return_date),
     [formData.departure_date, formData.return_date],
   )
-  const roundTripDistanceKm = useMemo(() => {
+  useEffect(() => {
     if (!formData.origin || !formData.destination) {
-      return 0
+      setRoundTripDistanceKm(0)
+      setRouteDistanceError(null)
+      return
     }
 
     const origin = locationByName.get(formData.origin.trim().toLowerCase())
     const destination = locationByName.get(formData.destination.trim().toLowerCase())
 
     if (!origin || !destination) {
-      return 0
+      setRoundTripDistanceKm(0)
+      setRouteDistanceError('Driving distance needs registered coordinates for both locations.')
+      return
     }
 
-    return haversineDistanceKm(origin, destination) * 2
+    let cancelled = false
+
+    const fetchDrivingDistance = async () => {
+      setRouteDistanceLoading(true)
+      setRouteDistanceError(null)
+
+      try {
+        const response = await axios.get(DRIVING_ROUTE_ENDPOINT, {
+          params: {
+            origin_lat: origin.latitude,
+            origin_lng: origin.longitude,
+            destination_lat: destination.latitude,
+            destination_lng: destination.longitude,
+          },
+          timeout: FORM_REQUEST_TIMEOUT_MS,
+        })
+
+        if (cancelled) {
+          return
+        }
+
+        const oneWayDistance = Number(response.data?.distance_km ?? 0)
+        if (!Number.isFinite(oneWayDistance) || oneWayDistance <= 0) {
+          throw new Error('Driving route returned zero distance.')
+        }
+
+        setRoundTripDistanceKm(oneWayDistance * 2)
+      } catch (error) {
+        if (cancelled) {
+          return
+        }
+
+        setRoundTripDistanceKm(0)
+        if (axios.isAxiosError(error)) {
+          setRouteDistanceError(formatApiError(error.response?.data, 'Driving distance could not be calculated.'))
+        } else if (error instanceof Error) {
+          setRouteDistanceError(error.message)
+        } else {
+          setRouteDistanceError('Driving distance could not be calculated.')
+        }
+      } finally {
+        if (!cancelled) {
+          setRouteDistanceLoading(false)
+        }
+      }
+    }
+
+    void fetchDrivingDistance()
+
+    return () => {
+      cancelled = true
+    }
   }, [formData.destination, formData.origin, locationByName])
   const autoAllowanceRows = useMemo(() => {
     if (isEditing || !formData.departure_date || !formData.return_date) {
@@ -772,6 +826,18 @@ function CreateClaim() {
       return
     }
 
+    if (routeDistanceLoading) {
+      setSubmitError('Please wait for the driving distance to finish calculating.')
+      setSavingClaim(false)
+      return
+    }
+
+    if (routeDistanceError || roundTripDistanceKm <= 0) {
+      setSubmitError('Please choose locations with an available highway/driving route.')
+      setSavingClaim(false)
+      return
+    }
+
     if (allowances.some((row) => !row.allowance)) {
       setSubmitError('Please choose an allowance for every row.')
       setSavingClaim(false)
@@ -815,8 +881,7 @@ function CreateClaim() {
       navigate('/my-claims')
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        const detail = (err.response?.data as { detail?: string } | undefined)?.detail
-        setSubmitError(detail || (isEditing ? 'Failed to update claim.' : 'Failed to submit claim.'))
+        setSubmitError(formatApiError(err.response?.data, isEditing ? 'Failed to update claim.' : 'Failed to submit claim.'))
       } else {
         setSubmitError(isEditing ? 'Failed to update claim.' : 'Failed to submit claim.')
       }
@@ -943,7 +1008,20 @@ function CreateClaim() {
                 </Form.Group>
                 <Col md={4} className='d-flex align-items-end'>
                   <div className='text-muted small'>
-                    Distance is calculated automatically.
+                    {routeDistanceLoading ? (
+                      <span className='d-flex align-items-center'>
+                        <Spinner animation='border' size='sm' className='me-2' />
+                        Calculating driving route...
+                      </span>
+                    ) : routeDistanceError ? (
+                      <span className='text-danger'>{routeDistanceError}</span>
+                    ) : roundTripDistanceKm > 0 ? (
+                      <span>
+                        Driving round trip: <strong>{roundTripDistanceKm.toFixed(1)} km</strong>
+                      </span>
+                    ) : (
+                      'Driving distance is calculated automatically.'
+                    )}
                   </div>
                 </Col>
               </Row>

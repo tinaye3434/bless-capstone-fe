@@ -23,10 +23,12 @@ import Profile from './pages/Profile'
 import LandingPage from './pages/LandingPage'
 import Signup from './pages/Signup'
 import FraudAlertsDashboard from './pages/FraudAlertsDashboard'
+import FraudAlertDetail from './pages/FraudAlertDetail'
+import FraudAlertInvestigate from './pages/FraudAlertInvestigate'
 import Reports from './pages/Reports'
 import ReportDetail from './pages/ReportDetail'
 import 'bootstrap/dist/css/bootstrap.min.css'
-import { getToken } from './utils/auth'
+import { getToken, hasManagementAccess, isAdmin } from './utils/auth'
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const token = getToken()
@@ -39,6 +41,20 @@ function RequireAuth({ children }: { children: ReactElement }) {
 function PublicOnly({ children }: { children: ReactElement }) {
   const token = getToken()
   if (token) {
+    return <Navigate to='/dashboard' replace />
+  }
+  return children
+}
+
+function RequireManagementAccess({ children }: { children: ReactElement }) {
+  if (!hasManagementAccess()) {
+    return <Navigate to='/dashboard' replace />
+  }
+  return children
+}
+
+function RequireAdminAccess({ children }: { children: ReactElement }) {
+  if (!isAdmin()) {
     return <Navigate to='/dashboard' replace />
   }
   return children
@@ -81,21 +97,93 @@ function App() {
           }
         >
           <Route path='/dashboard' element={<Dashboard />} />
-          <Route path='/all-claims' element={<AllClaims />} />
-          <Route path='/pending-claims' element={<PendingClaims />} />
+          <Route
+            path='/all-claims'
+            element={
+              <RequireManagementAccess>
+                <AllClaims />
+              </RequireManagementAccess>
+            }
+          />
+          <Route
+            path='/pending-claims'
+            element={
+              <RequireManagementAccess>
+                <PendingClaims />
+              </RequireManagementAccess>
+            }
+          />
           <Route path='/my-claims' element={<MyClaims />} />
-          <Route path='/submissions' element={<Submissions />} />
+          <Route
+            path='/submissions'
+            element={
+              <RequireManagementAccess>
+                <Submissions />
+              </RequireManagementAccess>
+            }
+          />
           <Route path='/claims/:id' element={<ClaimPreview />} />
           <Route path='/claims/:id/edit' element={<CreateClaim />} />
           <Route path='/claims/:id/documents' element={<ClaimDocuments />} />
           <Route path='/claims/:id/documents/summary' element={<ClaimDocumentsSummary />} />
           <Route path='/profile' element={<Profile />} />
-          <Route path='/settings' element={<Settings />} />
+          <Route
+            path='/settings'
+            element={
+              <RequireAdminAccess>
+                <Settings />
+              </RequireAdminAccess>
+            }
+          />
           <Route path='/create-claim' element={<CreateClaim />} />
-          <Route path='/fraud-training' element={<FraudTraining />} />
-          <Route path='/fraud-alerts' element={<FraudAlertsDashboard />} />
-          <Route path='/reports' element={<Reports />} />
-          <Route path='/reports/:reportType' element={<ReportDetail />} />
+          <Route
+            path='/fraud-training'
+            element={
+              <RequireAdminAccess>
+                <FraudTraining />
+              </RequireAdminAccess>
+            }
+          />
+          <Route
+            path='/fraud-alerts'
+            element={
+              <RequireManagementAccess>
+                <FraudAlertsDashboard />
+              </RequireManagementAccess>
+            }
+          />
+          <Route
+            path='/fraud-alerts/:fraudScoreId'
+            element={
+              <RequireManagementAccess>
+                <FraudAlertDetail />
+              </RequireManagementAccess>
+            }
+          />
+          <Route
+            path='/fraud-alerts/:fraudScoreId/investigate'
+            element={
+              <RequireManagementAccess>
+                <FraudAlertInvestigate />
+              </RequireManagementAccess>
+            }
+          />
+          <Route
+            path='/reports'
+            element={
+              <RequireManagementAccess>
+                <Reports />
+              </RequireManagementAccess>
+            }
+          />
+          <Route
+            path='/reports/:reportType'
+            element={
+              <RequireManagementAccess>
+                <ReportDetail />
+              </RequireManagementAccess>
+            }
+          />
         </Route>
       </>,
     ),

@@ -97,11 +97,12 @@ export const getRole = (): string | null => {
 }
 
 export const isSuperUser = (): boolean => getRole() === 'SUPERUSER'
+export const isManagement = (): boolean => getRole() === 'MANAGEMENT'
 export const isAdmin = (): boolean => {
   const role = getRole()
   return role === 'ADMIN' || role === 'SUPERUSER'
 }
-export const isApprover = (): boolean => {
+export const hasManagementAccess = (): boolean => {
   const role = getRole()
-  return role === 'APPROVER' || role === 'ADMIN' || role === 'SUPERUSER'
+  return role === 'MANAGEMENT' || role === 'ADMIN' || role === 'SUPERUSER'
 }

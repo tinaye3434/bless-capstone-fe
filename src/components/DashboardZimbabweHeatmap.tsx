@@ -238,11 +238,17 @@ function HeatMapPanel({
   )
 }
 
-function DashboardZimbabweHeatmap() {
-  const [claims, setClaims] = useState<ClaimApi[]>([])
+function DashboardZimbabweHeatmap({ claims: userClaims }: { claims?: ClaimApi[] }) {
+  const [claims, setClaims] = useState<ClaimApi[]>(userClaims ?? [])
   const [locations, setLocations] = useState<LocationPoint[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (userClaims) {
+      setClaims(userClaims)
+    }
+  }, [userClaims])
 
   useEffect(() => {
     const fetchMapData = async () => {
@@ -250,10 +256,10 @@ function DashboardZimbabweHeatmap() {
       setError(null)
 
       try {
-        const [claimsResponse, locationsResponse] = await Promise.all([
-          axios.get(CLAIMS_ENDPOINT),
-          axios.get(LOCATIONS_ENDPOINT),
-        ])
+        const requests = userClaims
+          ? [Promise.resolve({ data: userClaims }), axios.get(LOCATIONS_ENDPOINT)]
+          : [axios.get(CLAIMS_ENDPOINT), axios.get(LOCATIONS_ENDPOINT)]
+        const [claimsResponse, locationsResponse] = await Promise.all(requests)
 
         setClaims(normalizeClaimsResponse(claimsResponse.data))
         setLocations(normalizeLocationsResponse(locationsResponse.data))
@@ -266,7 +272,7 @@ function DashboardZimbabweHeatmap() {
     }
 
     void fetchMapData()
-  }, [])
+  }, [userClaims])
 
   const originSpots = useMemo(() => buildHeatSpots(claims, locations, 'origin'), [claims, locations])
   const destinationSpots = useMemo(
@@ -294,7 +300,7 @@ function DashboardZimbabweHeatmap() {
       <div className='col-lg-6'>
         <HeatMapPanel
           title='Origins Heat Map'
-          description='Where trips are starting across Zimbabwe.'
+          description='Where your trips are starting across Zimbabwe.'
           color='#0f766e'
           spots={originSpots}
         />
@@ -302,7 +308,7 @@ function DashboardZimbabweHeatmap() {
       <div className='col-lg-6'>
         <HeatMapPanel
           title='Destinations Heat Map'
-          description='Where claim travel is concentrating most often.'
+          description='Where your claim travel is concentrating most often.'
           color='#ea580c'
           spots={destinationSpots}
         />

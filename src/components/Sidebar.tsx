@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { isAdmin, isApprover } from '../utils/auth'
+import { hasManagementAccess, isAdmin } from '../utils/auth'
 
 function Sidebar() {
-  const canManageClaims = isAdmin() || isApprover()
+  const canManageClaims = hasManagementAccess()
   const showSettings = isAdmin()
 
   return (
@@ -48,31 +48,14 @@ function Sidebar() {
                 <p>My Claims</p>
               </NavLink>
             </li>
-            <li className='nav-item'>
-              <NavLink to='/submissions'>
-                <i className='fas fa-clipboard-check'></i>
-                <p>Receipts</p>
-              </NavLink>
-            </li>
-            <li className='nav-item'>
-              <NavLink to='/fraud-alerts'>
-                <i className='fas fa-shield-alt'></i>
-                <p>Fraud Alerts</p>
-              </NavLink>
-            </li>
-            <li className='nav-item'>
-              <NavLink to='/reports'>
-                <i className='fas fa-chart-line'></i>
-                <p>Reports</p>
-              </NavLink>
-            </li>
-
-            <li className='nav-section'>
-              <span className='sidebar-mini-icon'>
-                <i className='fa fa-ellipsis-h'></i>
-              </span>
-              <h4 className='text-section'>Management</h4>
-            </li>
+            {canManageClaims ? (
+              <li className='nav-section'>
+                <span className='sidebar-mini-icon'>
+                  <i className='fa fa-ellipsis-h'></i>
+                </span>
+                <h4 className='text-section'>Management</h4>
+              </li>
+            ) : null}
 
             {canManageClaims ? (
               <li className='nav-item'>
@@ -92,12 +75,41 @@ function Sidebar() {
               </li>
             ) : null}
 
-            <li className='nav-section'>
-              <span className='sidebar-mini-icon'>
-                <i className='fa fa-ellipsis-h'></i>
-              </span>
-              <h4 className='text-section'>Configurations</h4>
-            </li>
+            {canManageClaims ? (
+              <li className='nav-item'>
+                <NavLink to='/submissions'>
+                  <i className='fas fa-clipboard-check'></i>
+                  <p>Receipts</p>
+                </NavLink>
+              </li>
+            ) : null}
+
+            {canManageClaims ? (
+              <li className='nav-item'>
+                <NavLink to='/fraud-alerts'>
+                  <i className='fas fa-shield-alt'></i>
+                  <p>Fraud Alerts</p>
+                </NavLink>
+              </li>
+            ) : null}
+
+            {canManageClaims ? (
+              <li className='nav-item'>
+                <NavLink to='/reports'>
+                  <i className='fas fa-chart-line'></i>
+                  <p>Reports</p>
+                </NavLink>
+              </li>
+            ) : null}
+
+            {showSettings ? (
+              <li className='nav-section'>
+                <span className='sidebar-mini-icon'>
+                  <i className='fa fa-ellipsis-h'></i>
+                </span>
+                <h4 className='text-section'>Configurations</h4>
+              </li>
+            ) : null}
 
             {showSettings ? (
               <li className='nav-item'>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Alert } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
-import { getDisplayName, getUser, isAdmin, isApprover } from '../utils/auth'
+import { getDisplayName, getUser, hasManagementAccess, isAdmin } from '../utils/auth'
 import DashboardZimbabweHeatmap from '../components/DashboardZimbabweHeatmap'
 import {
   APPROVAL_STAGES_ENDPOINT,
@@ -21,7 +21,7 @@ import {
 
 function Dashboard() {
   const currentUser = getUser()
-  const canManageClaims = isAdmin() || isApprover()
+  const canManageClaims = hasManagementAccess()
   const showSettings = isAdmin()
   const [claims, setClaims] = useState<ClaimApi[]>([])
   const [claimRows, setClaimRows] = useState<ClaimRow[]>([])
@@ -244,10 +244,10 @@ function Dashboard() {
         <div className='mb-3'>
           <h4 className='mb-1'>Zimbabwe Travel Heat Map</h4>
           <p className='text-muted mb-0'>
-            Claim origins and destinations plotted against your Zimbabwe location registry.
+            Your claim origins and destinations plotted against the Zimbabwe location registry.
           </p>
         </div>
-        <DashboardZimbabweHeatmap />
+        <DashboardZimbabweHeatmap claims={myClaims} />
       </div>
     </div>
   )

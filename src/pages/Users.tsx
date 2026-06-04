@@ -19,7 +19,7 @@ const USER_ROLE_ENDPOINT = (userId: number | string) => `/api/users/${userId}/ro
 const RESET_ENDPOINT = '/api/auth/password-reset/'
 const ROLE_OPTIONS = [
   { value: 'EMPLOYEE', label: 'Employee' },
-  { value: 'APPROVER', label: 'Approver' },
+  { value: 'MANAGEMENT', label: 'Management' },
   { value: 'ADMIN', label: 'System Administrator' },
   { value: 'SUPERUSER', label: 'Super User' },
 ]
